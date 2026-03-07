@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/alberton/Projects/equor-worker/*.md)",
+      "Bash(npm install mammoth)",
+      "Bash(npm install --save-dev @types/mammoth)"
+    ]
+  }
+}

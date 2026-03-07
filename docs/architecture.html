@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equor Worker — Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0f;
+    color: #e4e4e7;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .hero {
+    text-align: center;
+    padding: 60px 20px 40px;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #818cf8, #6366f1, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+  }
+
+  .hero p {
+    color: #71717a;
+    font-size: 16px;
+    margin-top: 8px;
+    font-weight: 400;
+  }
+
+  .badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .badge.node { color: #4ade80; border-color: rgba(74,222,128,0.2); }
+  .badge.ts { color: #60a5fa; border-color: rgba(96,165,250,0.2); }
+  .badge.fastify { color: #fbbf24; border-color: rgba(251,191,36,0.2); }
+  .badge.claude { color: #c084fc; border-color: rgba(192,132,252,0.2); }
+  .badge.gcs { color: #f87171; border-color: rgba(248,113,113,0.2); }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── MAIN FLOW ── */
+  .flow-section {
+    margin-top: 48px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #6366f1;
+    margin-bottom: 20px;
+  }
+
+  .flow-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    position: relative;
+  }
+
+  .flow-step {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 0;
+    align-items: stretch;
+  }
+
+  .flow-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .flow-dot {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
+  .flow-line {
+    width: 2px;
+    flex: 1;
+    min-height: 20px;
+  }
+
+  .flow-card {
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+  }
+
+  .flow-card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .flow-card p {
+    font-size: 13px;
+    color: #a1a1aa;
+    line-height: 1.5;
+  }
+
+  .flow-card .file-ref {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #71717a;
+    background: rgba(255,255,255,0.04);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* Step colors */
+  .step-receive .flow-dot { background: #1e3a5f; color: #60a5fa; }
+  .step-receive .flow-line { background: linear-gradient(to bottom, #60a5fa, #6366f1); }
+  .step-receive .flow-card { background: linear-gradient(135deg, rgba(30,58,95,0.4), rgba(30,58,95,0.1)); border-color: rgba(96,165,250,0.15); }
+  .step-receive .flow-card h3 { color: #93c5fd; }
+
+  .step-validate .flow-dot { background: #1e3a5f; color: #60a5fa; }
+  .step-validate .flow-line { background: linear-gradient(to bottom, #6366f1, #8b5cf6); }
+  .step-validate .flow-card { background: linear-gradient(135deg, rgba(49,46,89,0.4), rgba(49,46,89,0.1)); border-color: rgba(99,102,241,0.15); }
+  .step-validate .flow-card h3 { color: #a5b4fc; }
+
+  .step-process .flow-dot { background: #3b1764; color: #c084fc; }
+  .step-process .flow-line { background: linear-gradient(to bottom, #8b5cf6, #a78bfa); }
+  .step-process .flow-card { background: linear-gradient(135deg, rgba(59,23,100,0.4), rgba(59,23,100,0.1)); border-color: rgba(192,132,252,0.15); }
+  .step-process .flow-card h3 { color: #d8b4fe; }
+
+  .step-ai .flow-dot { background: #4c1d95; color: #e9d5ff; }
+  .step-ai .flow-line { background: linear-gradient(to bottom, #a78bfa, #f472b6); }
+  .step-ai .flow-card { background: linear-gradient(135deg, rgba(76,29,149,0.4), rgba(76,29,149,0.1)); border-color: rgba(167,139,250,0.15); }
+  .step-ai .flow-card h3 { color: #e9d5ff; }
+
+  .step-report .flow-dot { background: #14532d; color: #4ade80; }
+  .step-report .flow-line { background: transparent; }
+  .step-report .flow-card { background: linear-gradient(135deg, rgba(20,83,45,0.4), rgba(20,83,45,0.1)); border-color: rgba(74,222,128,0.15); }
+  .step-report .flow-card h3 { color: #86efac; }
+
+  /* ── SERVICES GRID ── */
+  .services-section {
+    margin-top: 56px;
+  }
+
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .service-card {
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .service-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .service-card .icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 14px;
+  }
+
+  .service-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .service-card .desc {
+    font-size: 12px;
+    color: #a1a1aa;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+
+  .service-card .timeout {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+
+  .svc-backend { background: linear-gradient(135deg, rgba(30,58,95,0.3), rgba(15,23,42,0.6)); }
+  .svc-backend::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+  .svc-backend .icon { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .svc-backend h3 { color: #93c5fd; }
+  .svc-backend .timeout { background: rgba(59,130,246,0.1); color: #93c5fd; }
+
+  .svc-claude { background: linear-gradient(135deg, rgba(76,29,149,0.3), rgba(15,23,42,0.6)); }
+  .svc-claude::before { background: linear-gradient(90deg, #8b5cf6, #c084fc); }
+  .svc-claude .icon { background: rgba(139,92,246,0.15); color: #c084fc; }
+  .svc-claude h3 { color: #d8b4fe; }
+  .svc-claude .timeout { background: rgba(139,92,246,0.1); color: #d8b4fe; }
+
+  .svc-gcs { background: linear-gradient(135deg, rgba(120,53,15,0.3), rgba(15,23,42,0.6)); }
+  .svc-gcs::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .svc-gcs .icon { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .svc-gcs h3 { color: #fde68a; }
+  .svc-gcs .timeout { background: rgba(245,158,11,0.1); color: #fde68a; }
+
+  /* ── PROTECTION FEATURES ── */
+  .features-section {
+    margin-top: 56px;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .feature-card {
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .feature-card .feat-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .feature-card .feat-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+  }
+
+  .feature-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .feature-card p {
+    font-size: 12px;
+    color: #a1a1aa;
+    line-height: 1.6;
+  }
+
+  .feat-shutdown .feat-icon { background: rgba(239,68,68,0.15); color: #f87171; }
+  .feat-shutdown h3 { color: #fca5a5; }
+
+  .feat-validation .feat-icon { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .feat-validation h3 { color: #86efac; }
+
+  .feat-errors .feat-icon { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .feat-errors h3 { color: #fde68a; }
+
+  .feat-docker .feat-icon { background: rgba(96,165,250,0.15); color: #60a5fa; }
+  .feat-docker h3 { color: #93c5fd; }
+
+  /* ── FILE TREE ── */
+  .tree-section {
+    margin-top: 56px;
+  }
+
+  .file-tree {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 28px 32px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .file-tree .folder { color: #60a5fa; font-weight: 500; }
+  .file-tree .file { color: #a1a1aa; }
+  .file-tree .new { color: #4ade80; }
+  .file-tree .comment { color: #52525b; }
+  .file-tree .tree-line { color: #3f3f46; }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: #3f3f46;
+    font-size: 12px;
+  }
+
+  .footer span {
+    color: #6366f1;
+  }
+
+  @media (max-width: 768px) {
+    .services-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Equor Worker</h1>
+  <p>AI-Powered Legal Document Processing Microservice</p>
+  <div class="badge-row">
+    <span class="badge node">Node.js 22</span>
+    <span class="badge ts">TypeScript</span>
+    <span class="badge fastify">Fastify 5</span>
+    <span class="badge claude">Claude AI</span>
+    <span class="badge gcs">Google Cloud Storage</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ── REQUEST FLOW ── -->
+  <div class="flow-section">
+    <div class="section-label">Request Flow</div>
+    <div class="flow-grid">
+
+      <div class="flow-step step-receive">
+        <div class="flow-indicator">
+          <div class="flow-dot">1</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-card">
+          <h3>Receive Task</h3>
+          <p>PHP backend sends a POST request with <strong>taskId</strong> and <strong>processId</strong>. The worker authenticates via shared secret header and returns <strong>202 Accepted</strong> immediately.</p>
+          <span class="file-ref">POST /task &rarr; 202 Accepted</span>
+        </div>
+      </div>
+
+      <div class="flow-step step-validate">
+        <div class="flow-indicator">
+          <div class="flow-dot">2</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-card">
+          <h3>Fetch &amp; Validate</h3>
+          <p>Fetches process data from the backend API. The response is <strong>validated with Zod</strong> &mdash; no unsafe type assertions. Downloads context files (PDFs, contracts) from Google Cloud Storage into memory.</p>
+          <span class="file-ref">backend.service.ts &rarr; storage.service.ts</span>
+        </div>
+      </div>
+
+      <div class="flow-step step-process">
+        <div class="flow-indicator">
+          <div class="flow-dot">3</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-card">
+          <h3>Extract Placeholders</h3>
+          <p>Scans the HTML template for <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:3px;font-size:12px;">{{PROMPT: instruction}}</code> markers. Each placeholder contains an AI instruction that tells Claude what content to generate for that spot.</p>
+          <span class="file-ref">html-parser.ts &rarr; extractPromptPlaceholders()</span>
+        </div>
+      </div>
+
+      <div class="flow-step step-ai">
+        <div class="flow-indicator">
+          <div class="flow-dot">4</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-card">
+          <h3>AI Generation</h3>
+          <p>For each placeholder, sends the instruction + context files + current HTML to <strong>Claude</strong>. The AI generates formal Brazilian legal text. Placeholders are filled <strong>sequentially</strong> so each one sees the updated document.</p>
+          <span class="file-ref">claude.service.ts &rarr; callClaude()</span>
+        </div>
+      </div>
+
+      <div class="flow-step step-report">
+        <div class="flow-indicator">
+          <div class="flow-dot">5</div>
+          <div class="flow-line"></div>
+        </div>
+        <div class="flow-card">
+          <h3>Report Result</h3>
+          <p>Sends the completed HTML back to the backend with status <strong>completed</strong>. If anything fails, reports <strong>failed</strong> with the error message. Multiple documents are processed in parallel &mdash; one failure doesn't cancel the others.</p>
+          <span class="file-ref">reportDocumentResult() &rarr; POST /result</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── EXTERNAL SERVICES ── -->
+  <div class="services-section">
+    <div class="section-label">External Services &amp; Timeouts</div>
+    <div class="services-grid">
+
+      <div class="service-card svc-backend">
+        <div class="icon">&#9881;</div>
+        <h3>PHP Backend (Yii2)</h3>
+        <div class="desc">Fetches process data and reports results. Authenticated via shared secret header. Response validated with Zod schema.</div>
+        <span class="timeout">&#9202; 30s timeout</span>
+      </div>
+
+      <div class="service-card svc-claude">
+        <div class="icon">&#10024;</div>
+        <h3>Claude AI (Anthropic)</h3>
+        <div class="desc">Generates formal legal text in Brazilian Portuguese. Receives PDFs, metadata, and HTML context. Returns only the content, no explanations.</div>
+        <span class="timeout">&#9202; 10min timeout</span>
+      </div>
+
+      <div class="service-card svc-gcs">
+        <div class="icon">&#9729;</div>
+        <h3>Google Cloud Storage</h3>
+        <div class="desc">Downloads context files (contracts, powers of attorney) directly into memory as base64. No temporary files on disk.</div>
+        <span class="timeout">&#9202; 60s timeout</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── PROTECTION FEATURES ── -->
+  <div class="features-section">
+    <div class="section-label">Reliability &amp; Safety</div>
+    <div class="features-grid">
+
+      <div class="feature-card feat-shutdown">
+        <div class="feat-header">
+          <div class="feat-icon">&#9632;</div>
+          <h3>Graceful Shutdown</h3>
+        </div>
+        <p>When Cloud Run sends SIGTERM (deploy, scale-down), the worker stops accepting new tasks (returns 503), waits up to 25 seconds for in-flight tasks to finish, then exits cleanly. No orphaned documents stuck in "processing" forever.</p>
+      </div>
+
+      <div class="feature-card feat-validation">
+        <div class="feat-header">
+          <div class="feat-icon">&#10003;</div>
+          <h3>Zod Validation</h3>
+        </div>
+        <p>All data from external sources is validated at runtime with Zod schemas. If the backend returns an unexpected shape, the error is caught immediately with a clear message &mdash; not a cryptic crash later.</p>
+      </div>
+
+      <div class="feature-card feat-errors">
+        <div class="feat-header">
+          <div class="feat-icon">&#9888;</div>
+          <h3>Fault-Tolerant Errors</h3>
+        </div>
+        <p>If reporting a failure to the backend also fails (e.g. network down), the error is logged instead of crashing. Each document is isolated via Promise.allSettled &mdash; one failure never cancels the others.</p>
+      </div>
+
+      <div class="feature-card feat-docker">
+        <div class="feat-header">
+          <div class="feat-icon">&#128274;</div>
+          <h3>Container Hardening</h3>
+        </div>
+        <p>Runs as non-root user inside Docker. NODE_ENV=production set at build time. Built-in HEALTHCHECK pings /health every 30 seconds. Alpine-based image for minimal attack surface.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── FILE TREE ── -->
+  <div class="tree-section">
+    <div class="section-label">Project Structure</div>
+    <div class="file-tree">
+      <span class="folder">src/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">config/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; \-- </span><span class="file">env.ts</span> <span class="comment"># Environment validation (Zod)</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">handlers/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; \-- </span><span class="file">process.handler.ts</span> <span class="comment"># Main orchestration logic</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">lib/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; |-- </span><span class="file">html-parser.ts</span> <span class="comment"># Placeholder extraction</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; |-- </span><span class="file">logger.ts</span> <span class="comment"># Pino multistream logger</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; \-- </span><span class="new">shutdown.ts</span> <span class="comment"># Graceful shutdown (NEW)</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">middleware/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; \-- </span><span class="file">auth.middleware.ts</span> <span class="comment"># Auth (secret / Bearer)</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">routes/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; \-- </span><span class="file">task.route.ts</span> <span class="comment"># POST /task, GET /health</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">schemas/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; |-- </span><span class="new">backend.schema.ts</span> <span class="comment"># Backend response validation (NEW)</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; \-- </span><span class="file">task.schema.ts</span> <span class="comment"># Task payload validation</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">services/</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; |-- </span><span class="file">backend.service.ts</span> <span class="comment"># PHP backend API</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; |-- </span><span class="file">claude.service.ts</span> <span class="comment"># Claude AI API</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|&nbsp;&nbsp; \-- </span><span class="file">storage.service.ts</span> <span class="comment"># Google Cloud Storage</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="folder">types/</span> <span class="comment"># TypeScript interfaces</span><br>
+      <span class="tree-line">&nbsp;&nbsp;|-- </span><span class="file">index.ts</span> <span class="comment"># Entry point + shutdown signals</span><br>
+      <span class="tree-line">&nbsp;&nbsp;\-- </span><span class="file">server.ts</span> <span class="comment"># Fastify server setup</span><br>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Built with <span>Equor Worker v1.0</span> &mdash; Node.js 22 &bull; TypeScript &bull; Fastify &bull; Claude AI
+</div>
+
+</body>
+</html>
