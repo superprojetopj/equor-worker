@@ -2,8 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createRequire } from 'module'
 const mammoth = createRequire(import.meta.url)('mammoth') as typeof import('mammoth')
 import { getEnv } from '../config/env.js'
-import type { ClaudeRequest, ContextFile } from '../types/index.js'
-import { fillPlaceholdersPrompt } from '../prompts/index.js'
+import type { ClaudeRequest, ContextFile } from '../types/claude.types.js'
+import { fillPlaceholdersPrompt } from '../prompts/fill-placeholders.prompt.js'
 
 type Block = Anthropic.Messages.ContentBlockParam
 
@@ -89,7 +89,7 @@ export async function callClaude(req: ClaudeRequest): Promise<string> {
   const response = await getClient().messages.create(
     {
       model: getEnv().CLAUDE_MODEL,
-      max_tokens: 4096,
+      max_tokens: 16000,
       system: fillPlaceholdersPrompt,
       messages: [{ role: 'user', content: await buildUserContent(req) }],
     },

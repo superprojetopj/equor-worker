@@ -1,10 +1,11 @@
 import pino from 'pino'
 import type { TaskPayload } from '../schemas/task.schema.js'
-import type { ProcessDocumentData, ContextFile } from '../types/index.js'
+import type { ProcessDocumentData } from '../types/backend.types.js'
 import { fetchProcessData, reportDocumentResult } from '../services/backend.service.js'
 import { callClaude } from '../services/claude.service.js'
 import { downloadFromGCS } from '../services/storage.service.js'
 import { extractPromptPlaceholders, replacePlaceholder, replaceVariables } from '../lib/html-parser.js'
+import { ContextFile } from '../types/claude.types.js'
 
 const log = pino({ name: 'process-handler' })
 

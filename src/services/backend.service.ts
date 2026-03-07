@@ -4,7 +4,7 @@ import type {
   BackendProcessResponse,
   DocumentStatus,
   DocumentResultPayload,
-} from '../types/index.js'
+} from '../types/backend.types.js'
 
 function backendUrl(): string {
   return getEnv().BACKEND_URL.replace(/\/$/, '')

@@ -1,4 +1,4 @@
-import type { PromptPlaceholder } from '../types/index.js'
+import { PromptPlaceholder } from "../types/html.types.js"
 
 function isPromptSpan(attrs: string): boolean {
   return /data-variable=["']\{\{PROMPT\}\}["']/i.test(attrs)
