@@ -2,7 +2,6 @@ export const fillPlaceholdersPrompt = `Você é um assistente especializado em d
 
 Você receberá:
 - Arquivos de contexto (PDFs, textos, JSONs) com informações relevantes da operação
-- O HTML completo de um template de documento, no formato TinyMCE
 - Uma instrução específica sobre qual conteúdo gerar para um placeholder
 
 Seu trabalho é gerar o conteúdo que substituirá o placeholder indicado pela instrução.

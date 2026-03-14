@@ -3,6 +3,7 @@ import { createRequire } from 'module'
 const mammoth = createRequire(import.meta.url)('mammoth') as typeof import('mammoth')
 import { getEnv } from '../config/env.js'
 import type { ClaudeRequest, ContextFile } from '../types/claude.types.js'
+import { systemPrompt } from '../prompts/system.prompt.js'
 import { fillPlaceholdersPrompt } from '../prompts/fill-placeholders.prompt.js'
 
 type Block = Anthropic.Messages.ContentBlockParam
@@ -66,18 +67,13 @@ async function buildUserContent(req: ClaudeRequest): Promise<Block[]> {
   if (req.metadata) {
     blocks.push({
       type: 'text',
-      text: `[Dados estruturados da operação]\n${JSON.stringify(req.metadata, null, 2)}`,
+      text: `METADADOS:\n${JSON.stringify(req.metadata, null, 2)}`,
     })
   }
 
   blocks.push({
     type: 'text',
-    text: `[HTML do documento (template TinyMCE)]\n${req.htmlTemplate}`,
-  })
-
-  blocks.push({
-    type: 'text',
-    text: `Instrução: ${req.instruction}\n\nRetorne APENAS o conteúdo que deve ficar dentro do span — HTML compatível com TinyMCE se necessário, sem explicações, sem markdown, sem a tag span em si.`,
+    text: req.instruction,
   })
 
   return blocks
@@ -90,7 +86,7 @@ export async function callClaude(req: ClaudeRequest): Promise<string> {
     {
       model: getEnv().CLAUDE_MODEL,
       max_tokens: 16000,
-      system: fillPlaceholdersPrompt,
+      system: `${systemPrompt}\n\n---\n\n${fillPlaceholdersPrompt}`,
       messages: [{ role: 'user', content: await buildUserContent(req) }],
     },
     { signal: abort }

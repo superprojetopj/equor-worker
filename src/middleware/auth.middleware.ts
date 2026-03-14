@@ -1,10 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { getEnv } from '../config/env.js'
 
-export async function verifyAuth(
-  request: FastifyRequest,
-  reply: FastifyReply
-): Promise<void> {
+export async function verifyAuth(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const { NODE_ENV, WORKER_SECRET } = getEnv()
 
   if (NODE_ENV === 'production') {

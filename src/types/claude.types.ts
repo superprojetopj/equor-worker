@@ -1,3 +1,5 @@
+import type { ProcessMetadata } from './backend.types.js'
+
 export interface ContextFile {
   base64Data: string
   mediaType: string
@@ -6,7 +8,6 @@ export interface ContextFile {
 
 export interface ClaudeRequest {
   instruction: string
-  htmlTemplate: string
   contextFiles: ContextFile[]
-  metadata?: Record<string, unknown>
+  metadata?: ProcessMetadata
 }

@@ -8,7 +8,7 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
 
   BACKEND_URL: z.url(),
-  BACKEND_DOCUMENT_PATH: z.string().default('/api/process/{id}/task-data'),
+  BACKEND_DOCUMENT_PATH: z.string().default('/worker/{id}/task-data'),
 
   WORKER_SECRET: z.string().min(1),
 

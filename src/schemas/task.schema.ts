@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const TaskPayloadSchema = z.object({
-  taskId: z.uuid(),
+  taskId: z.number().int(),
   processId: z.number().int(),
 })
 

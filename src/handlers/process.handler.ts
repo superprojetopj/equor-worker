@@ -1,11 +1,10 @@
 import pino from 'pino'
 import type { TaskPayload } from '../schemas/task.schema.js'
-import type { ProcessDocumentData } from '../types/backend.types.js'
+import type { ProcessDocumentData, ProcessMetadata, PromptResult } from '../types/backend.types.js'
+import type { ContextFile } from '../types/claude.types.js'
 import { fetchProcessData, reportDocumentResult } from '../services/backend.service.js'
 import { callClaude } from '../services/claude.service.js'
 import { downloadFromGCS } from '../services/storage.service.js'
-import { extractPromptPlaceholders, replacePlaceholder, replaceVariables } from '../lib/html-parser.js'
-import { ContextFile } from '../types/claude.types.js'
 
 const log = pino({ name: 'process-handler' })
 
@@ -23,43 +22,40 @@ async function downloadContextFiles(
 
 async function resolveDocument(
   doc: ProcessDocumentData,
-  metadata: Record<string, unknown> | undefined
+  metadata: ProcessMetadata | undefined
 ): Promise<void> {
-  const { process_document_id } = doc
+  const { process_document_id, prompts } = doc
 
-  await reportDocumentResult(process_document_id, 'processing')
+  //await reportDocumentResult(process_document_id, 'PROCESSING')
 
   try {
-    let html = metadata ? replaceVariables(doc.html_template, metadata) : doc.html_template
-
-    const placeholders = extractPromptPlaceholders(html)
-
-    if (placeholders.length === 0) {
-      await reportDocumentResult(process_document_id, 'completed', html)
+    if (prompts.length === 0) {
+      // await reportDocumentResult(process_document_id, 'COMPLETED')
       return
     }
 
-    const contextFiles = await downloadContextFiles(doc.context_files ?? [])
+    const contextFiles: ContextFile[] = [] //await downloadContextFiles(doc.context_files ?? [])
+    const results: PromptResult[] = []
 
-    for (const placeholder of placeholders) {
-      const result = await callClaude({
-        instruction: placeholder.instruction,
-        htmlTemplate: html,
+    for (const prompt of prompts) {
+      const resultHtml = await callClaude({
+        instruction: prompt.prompt,
         contextFiles,
         metadata,
       })
-      html = replacePlaceholder(html, placeholder, result)
+      results.push({ prompt_id: prompt.id, result_html: resultHtml })
     }
 
-    await reportDocumentResult(process_document_id, 'completed', html)
+    await reportDocumentResult(process_document_id, 'COMPLETED', results)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    log.error({ process_document_id, error: message }, 'Document processing failed')
     try {
-      await reportDocumentResult(process_document_id, 'failed', undefined, message)
+      await reportDocumentResult(process_document_id, 'FAILED', [], message)
     } catch (reportError) {
       log.error(
         { process_document_id, originalError: message, reportError },
-        'Failed to report document error to backend'
+        'Failed to report error to backend'
       )
     }
   }
@@ -68,7 +64,5 @@ async function resolveDocument(
 export async function processTask(payload: TaskPayload): Promise<void> {
   const { process: proc, metadata } = await fetchProcessData(payload.processId)
 
-  await Promise.allSettled(
-    proc.documents.map((doc) => resolveDocument(doc, metadata))
-  )
+  await Promise.allSettled(proc.documents.map((doc) => resolveDocument(doc, metadata)))
 }

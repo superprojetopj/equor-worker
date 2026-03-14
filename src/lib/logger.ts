@@ -16,9 +16,6 @@ export function createLogger(): pino.Logger {
 
   return pino(
     { level: LOG_LEVEL },
-    pino.multistream([
-      { stream: process.stdout },
-      { stream: pino.destination(LOG_FILE) },
-    ])
+    pino.multistream([{ stream: process.stdout }, { stream: pino.destination(LOG_FILE) }])
   )
 }
