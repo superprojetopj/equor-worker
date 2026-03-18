@@ -14,7 +14,7 @@ function backendUrl(): string {
 function headers(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'x-worker-secret': getEnv().WORKER_SECRET,
+    'X-Worker-Key': getEnv().WORKER_SECRET,
   }
 }
 
