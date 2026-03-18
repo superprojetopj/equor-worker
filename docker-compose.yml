@@ -1,0 +1,15 @@
+services:
+  worker:
+    build: .
+    container_name: equor-worker
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - PORT=8000
+      # Path do JSON de credenciais GCS dentro do container
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/keys/equor-homologa-483515-6666073a1e71.json
+    volumes:
+      - ./src/config/keys:/app/keys:ro
