@@ -4,7 +4,11 @@ import { buildServer } from './server.js'
 import { beginShutdown, waitForDrain } from './lib/shutdown.js'
 
 async function main() {
-  const { PORT } = getEnv()
+  const env = getEnv()
+  if (!env.WORKER_SECRET?.trim()) {
+    throw new Error('WORKER_SECRET is required and must not be empty (check GCP env vars)')
+  }
+  const { PORT } = env
   const app = await buildServer()
 
   await app.listen({ port: PORT, host: '0.0.0.0' })

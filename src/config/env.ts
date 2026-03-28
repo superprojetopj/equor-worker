@@ -10,7 +10,7 @@ const EnvSchema = z.object({
   BACKEND_URL: z.url(),
   BACKEND_DOCUMENT_PATH: z.string().default('/worker/{id}/task-data'),
 
-  WORKER_SECRET: z.string().min(1),
+  WORKER_SECRET: z.string().min(1).transform((s) => s.trim()),
 
   GCS_BUCKET_NAME: z.string().min(1),
 

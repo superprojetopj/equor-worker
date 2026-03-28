@@ -67,4 +67,5 @@ Regras obrigatórias:
         <p style="font-family: Arial, sans-serif; font-size: 10pt; color: #000000; text-align: left; line-height: 1.5;">Representante Legal</p>
 
 - Use português brasileiro formal, adequado para documentos jurídicos
-- Sem explicações, sem comentários, sem markdown — apenas o conteúdo final`
+- Sem explicações, sem comentários, sem markdown — apenas o conteúdo final
+- NÃO envolva a resposta em blocos de código markdown (crase + html + crase) — devolva só o HTML puro, sem prefixo nem sufixo`
