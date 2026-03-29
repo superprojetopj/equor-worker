@@ -10,35 +10,44 @@ export interface Endereco {
   state: string
 }
 
-export interface Empresa {
-  cnpj: string
-  razao_social: string
-  phone: string
-  whatsapp: string
-  email: string
-  cnae_principal: string | null
-  cnaes_secundarios: string[]
-  endereco: Endereco
-  [key: string]: unknown
+export interface Cnae {
+  subclasse: string
+  denominacao: string
 }
 
 export interface Socio {
-  contact_id: number
-  company_id: number
   cpf: string
   nome: string
   email: string
   phone: string
   whatsapp: string
   role: string
-  occupation: string
+  profissao: string
+  legal_representative: boolean
+  is_signatory: boolean
+  is_witness: boolean
+  is_consultant: boolean
+  is_reviewer: boolean
+  endereco?: Endereco
+  [key: string]: unknown
+}
+
+export interface Empresa {
+  cnpj: string
+  razao_social: string
+  phone: string
+  whatsapp: string
+  email: string
+  cnae_principal: Cnae | null
+  cnaes_secundarios: Cnae[]
+  endereco: Endereco
+  socios: Socio[]
   [key: string]: unknown
 }
 
 export interface ProcessMetadata {
   contratantes?: Empresa[]
   contratadas?: Empresa[]
-  socios?: Socio[]
   [key: string]: unknown
 }
 
@@ -64,7 +73,6 @@ export interface ProcessDocumentData {
 }
 
 export interface ProcessData {
-  id: number
   process_number: string
   documents: ProcessDocumentData[]
 }

@@ -10,33 +10,42 @@ const EnderecoSchema = z.object({
   state: z.string(),
 })
 
-const EmpresaSchema = z.looseObject({
-  cnpj: z.string(),
-  razao_social: z.string(),
-  phone: z.string().default(''),
-  whatsapp: z.string().default(''),
-  email: z.string().default(''),
-  cnae_principal: z.string().nullable().default(null),
-  cnaes_secundarios: z.array(z.string()).default([]),
-  endereco: EnderecoSchema,
+const CnaeSchema = z.object({
+  subclasse: z.string(),
+  denominacao: z.string(),
 })
 
 const SocioSchema = z.looseObject({
-  contact_id: z.number(),
-  company_id: z.number(),
   cpf: z.string(),
   nome: z.string(),
   email: z.string().default(''),
   phone: z.string().default(''),
   whatsapp: z.string().default(''),
   role: z.string().default(''),
-  occupation: z.string().default(''),
+  profissao: z.string().default(''),
+  legal_representative: z.boolean().default(false),
+  is_signatory: z.boolean().default(false),
+  is_witness: z.boolean().default(false),
+  is_consultant: z.boolean().default(false),
+  is_reviewer: z.boolean().default(false),
+  endereco: EnderecoSchema.optional(),
+})
+
+const EmpresaSchema = z.looseObject({
+  cnpj: z.string(),
+  razao_social: z.string(),
+  phone: z.string().default(''),
+  whatsapp: z.string().default(''),
+  email: z.string().default(''),
+  cnae_principal: CnaeSchema.nullable().default(null),
+  cnaes_secundarios: z.array(CnaeSchema).default([]),
+  endereco: EnderecoSchema,
+  socios: z.array(SocioSchema).default([]),
 })
 
 const MetadataSchema = z.looseObject({
   contratantes: z.array(EmpresaSchema).optional(),
   contratadas: z.array(EmpresaSchema).optional(),
-  socios: z.array(SocioSchema).optional(),
 })
 
 const ContextFileRefSchema = z.object({
@@ -59,7 +68,6 @@ const ProcessDocumentDataSchema = z.object({
 })
 
 const ProcessDataSchema = z.object({
-  id: z.number().int(),
   process_number: z.string(),
   documents: z.array(ProcessDocumentDataSchema),
 })
