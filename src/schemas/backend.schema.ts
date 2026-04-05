@@ -76,3 +76,15 @@ export const BackendProcessResponseSchema = z.object({
   process: ProcessDataSchema,
   metadata: MetadataSchema.optional(),
 })
+
+export const PlanilhaReviewItemSchema = z.object({
+  id: z.number().int(),
+  numero_processo: z.string(),
+})
+
+export const PlanilhaReviewListResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.array(PlanilhaReviewItemSchema),
+})
+
+export type PlanilhaReviewItem = z.infer<typeof PlanilhaReviewItemSchema>

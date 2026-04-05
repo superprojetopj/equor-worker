@@ -14,8 +14,14 @@ const EnvSchema = z.object({
 
   GCS_BUCKET_NAME: z.string().min(1),
 
+  // AI Services
+  // Anthropic
   ANTHROPIC_API_KEY: z.string().min(1),
   CLAUDE_MODEL: z.string().default('claude-sonnet-4-6'),
+
+  // Gemini
+  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
 })
 
 export type Env = z.infer<typeof EnvSchema>

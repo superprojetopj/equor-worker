@@ -1,11 +1,17 @@
 import { getEnv } from '../config/env.js'
-import { BackendProcessResponseSchema } from '../schemas/backend.schema.js'
+import {
+  BackendProcessResponseSchema,
+  PlanilhaReviewListResponseSchema,
+  type PlanilhaReviewItem,
+} from '../schemas/backend.schema.js'
 import type {
   BackendProcessResponse,
   DocumentStatus,
   DocumentResultPayload,
   PromptResult,
 } from '../types/backend.types.js'
+
+export type { PlanilhaReviewItem }
 
 function backendUrl(): string {
   return getEnv().BACKEND_URL.replace(/\/$/, '')
@@ -62,5 +68,40 @@ export async function reportDocumentResult(
   if (!response.ok) {
     const body = await response.text()
     throw new Error(`Backend POST failed: ${response.status} - ${body}`)
+  }
+}
+
+export async function fetchPlanilhaReviewList(): Promise<PlanilhaReviewItem[]> {
+  const url = `${backendUrl()}/planilha-review/get-all`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: headers(),
+    signal: AbortSignal.timeout(30_000),
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Backend GET /planilha-review/get-all failed: ${response.status} - ${body}`)
+  }
+
+  const json = await response.json()
+  const parsed = PlanilhaReviewListResponseSchema.parse(json)
+  return parsed.data
+}
+
+export async function updatePlanilhaReview(id: number, payload: unknown): Promise<void> {
+  const url = `${backendUrl()}/planilha-review/${id}`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(30_000),
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Backend POST /planilha-review/${id} failed: ${response.status} - ${body}`)
   }
 }
