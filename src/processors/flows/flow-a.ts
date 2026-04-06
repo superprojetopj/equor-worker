@@ -128,7 +128,7 @@ Leia integralmente todos os documentos anexados e extraia uma análise estratég
 
 CHECKLIST OBRIGATÓRIO — APLICAR A CADA CAMPO PREENCHIDO:
 - Se ultima_movimentacao menciona "TRT", "Relator" ou "redistribuído" → instancia = "SEGUNDA_INSTANCIA"
-- Se trecho_resumido menciona "pendente de julgamento" → resultado_atual = "*_PENDENTE"
+- Se a última decisão de mérito ACOLHEU a tese da COPEL → resultado_atual = "*_ACOLHIDA" (recurso pendente do autor NÃO altera resultado_atual — vai em detalhes/pendências)
 - Se a sentença REJEITOU os pedidos do AUTOR → a tese da COPEL foi ACOLHIDA (não REJEITADA)
 - Se pendencias tem item MEDIA/ALTA → acoes_recomendadas precisa de ação além de MONITORAMENTO
 
@@ -169,22 +169,22 @@ Nunca use _REJEITADA para uma tese que a COPEL venceu. O sufixo _REJEITADA signi
 REPETIÇÃO DE SEGURANÇA: Ao classificar os resultados, aplique a perspectiva da Executada (COPEL). Se a decisão judicial indicar que os pedidos do Exequente foram REJEITADOS ou que o processo foi EXTINTO em razão de uma preliminar arguida pela Ré, o campo resultado_judicial deve ser obrigatoriamente marcado como ACOLHIDA (referindo-se ao acolhimento da tese defensiva). A tese só deve ser marcada como REJEITADA se o juiz afastar expressamente o argumento da COPEL e der seguimento ao pedido do autor naquele ponto específico.
 
 Semântica:
-- *_ACOLHIDA: A tese da COPEL foi aceita pelo tribunal — E NÃO HÁ RECURSO PENDENTE contra essa decisão.
-- *_REJEITADA: A tese defensiva da COPEL foi expressamente afastada (o autor venceu o ponto) — E NÃO HÁ RECURSO PENDENTE contra essa decisão.
-- *_PENDENTE: A tese foi alegada e está aguardando decisão, OU já foi decidida mas há recurso recebido contra essa decisão pendente de julgamento (ex: agravo de petição recebido e remetido ao TRT).
+- *_ACOLHIDA: A tese da COPEL foi aceita pela ÚLTIMA instância que a analisou. Se houver recurso pendente contra essa decisão, registre o recurso nos campos detalhes e urgencia/pendencias_identificadas, mas mantenha *_ACOLHIDA — o resultado reflete a decisão vigente, não a expectativa do recurso.
+- *_REJEITADA: A tese defensiva da COPEL foi expressamente afastada (o autor venceu o ponto) pela última instância que a analisou.
+- *_PENDENTE: A tese foi alegada mas NUNCA foi decidida por nenhuma instância (está aguardando primeira decisão de mérito).
 - null: Não houve alegação nem análise judicial sobre o tema nos documentos (somente para resultado_atual).
 
-PRIORIDADE DE INSTÂNCIA: resultado_atual deve sempre refletir a instância mais alta que decidiu. Se a sentença rejeitou mas o acórdão acolheu → resultado_atual = "ILEGITIMIDADE_ACOLHIDA". O array resultados_por_instancia registra a trajetória completa (ambas as entradas). Se a decisão favorável à COPEL é objeto de recurso recebido e pendente, use *_PENDENTE, não *_ACOLHIDA.
-VALIDAÇÃO CRUZADA: Após preencher resultado_atual, releia detalhes e trecho_resumido do último item de resultados_por_instancia. Se mencionarem "pendente de julgamento" ou "recurso pendente", resultado_atual NÃO pode ser *_ACOLHIDA — deve ser *_PENDENTE.
+PRIORIDADE DE INSTÂNCIA: resultado_atual deve sempre refletir a ÚLTIMA decisão judicial de MÉRITO sobre a tese, independentemente de instância. Se a sentença rejeitou mas o acórdão acolheu → resultado_atual = "ILEGITIMIDADE_ACOLHIDA". Se o acórdão devolveu à origem e a nova sentença acolheu → resultado_atual = "ILEGITIMIDADE_ACOLHIDA". O array resultados_por_instancia registra a trajetória completa (todas as entradas). Se houver recurso pendente contra a decisão favorável à COPEL, mantenha *_ACOLHIDA e registre o recurso em detalhes e na urgencia/pendencias.
+VALIDAÇÃO CRUZADA: Após preencher resultado_atual, releia detalhes. Se a última DECISÃO DE MÉRITO (sentença ou acórdão) foi favorável à COPEL, resultado_atual deve ser *_ACOLHIDA, MESMO que haja recurso pendente. O recurso pendente impacta urgencia e pendencias_identificadas, não resultado_atual.
 
-REGRA DE PENDÊNCIA RECURSAL — APLICAÇÃO OBRIGATÓRIA:
-Quando a decisão mais recente favorável à COPEL for objeto de recurso RECEBIDO e pendente de julgamento, resultado_atual DEVE ser "*_PENDENTE", NUNCA "*_ACOLHIDA". O sufixo _ACOLHIDA só pode ser usado quando a decisão favorável à COPEL transitou em julgado OU quando não há recurso pendente contra ela.
+REGRA DE PREVALÊNCIA DA ÚLTIMA DECISÃO — APLICAÇÃO OBRIGATÓRIA:
+O campo resultado_atual reflete SEMPRE a última decisão judicial de MÉRITO sobre a tese. Se a última sentença ou acórdão ACOLHEU a tese da COPEL, resultado_atual = "*_ACOLHIDA", MESMO que exista recurso pendente contra essa decisão. O recurso pendente do autor NÃO altera resultado_atual — deve ser registrado em: (a) detalhes (trajetória completa); (b) urgencia/pendencias_identificadas (risco de reversão); (c) acoes_recomendadas (contraminuta/monitoramento).
 
-EXEMPLO CONCRETO: Se a sentença de 1ª instância reconheceu a ilegitimidade ativa do autor (vitória da COPEL), MAS o autor interpôs agravo de petição que foi recebido e remetido ao TRT → resultado_atual = "ILEGITIMIDADE_PENDENTE" (não ACOLHIDA). Em resultados_por_instancia, a entrada da 1ª instância registra "ILEGITIMIDADE_ACOLHIDA". Em detalhes, registre: "Tese de ilegitimidade acolhida em 1ª instância (Sentença de [data], fl. X), porém pendente de confirmação em 2ª instância em razão de agravo de petição do autor recebido em [data] (fl. Y)."
+EXEMPLO CONCRETO: Se a sentença de 1ª instância reconheceu a ilegitimidade ativa do autor (vitória da COPEL), E o autor interpôs agravo de petição que foi recebido e remetido ao TRT → resultado_atual = "ILEGITIMIDADE_ACOLHIDA". Em resultados_por_instancia, a entrada da 1ª instância registra "ILEGITIMIDADE_ACOLHIDA". Em detalhes, registre: "Tese de ilegitimidade acolhida em 1ª instância (Sentença de [data], fl. X). Recurso do autor (agravo de petição recebido em [data], fl. Y) pendente de julgamento no TRT — registrado em pendências e ações recomendadas."
 
-CONTRAEXEMPLO: Se a sentença de 1ª instância reconheceu a ilegitimidade e NÃO houve recurso (prazo escoou sem manifestação) → resultado_atual = "ILEGITIMIDADE_ACOLHIDA".
+CONTRAEXEMPLO: Se a sentença de 1ª instância REJEITOU a tese da COPEL (deu razão ao autor) e há recurso da COPEL pendente → resultado_atual = "ILEGITIMIDADE_REJEITADA". O recurso da COPEL é registrado em detalhes e pendências, mas não altera resultado_atual.
 
-CHECKLIST DE VALIDAÇÃO: Antes de definir resultado_atual, responda: (1) Existe recurso recebido contra a última decisão sobre esta tese? Se SIM → _PENDENTE. Se NÃO → _ACOLHIDA ou _REJEITADA conforme o resultado.
+CHECKLIST DE VALIDAÇÃO: Antes de definir resultado_atual, responda: (1) Qual a ÚLTIMA decisão de mérito sobre esta tese? (2) Essa decisão foi favorável à COPEL? Se SIM → _ACOLHIDA. Se NÃO → _REJEITADA. Se NUNCA decidida → _PENDENTE. Recursos pendentes são registrados em detalhes/pendências, não em resultado_atual.
 
 4. DEFINIÇÕES-CHAVE
 - LITISPENDÊNCIA: O autor possui/possuía ação COM PEDIDO IDÊNTICO em curso simultâneo? Se sim, isso foi discutido judicialmente? Qual o resultado?
@@ -226,6 +226,11 @@ Uma decisão só é ACÓRDÃO se assinada por "Relator", "Desembargador" ou cole
 EXEMPLO CONCRETO DE ERRO A EVITAR: Se o acórdão de 24/01/2025 (assinado pelo Relator Des. Marcus Aurelio Lopes) determinou o retorno dos autos à origem, e em 28/01/2026 o Juiz Paulo Henrique Kretzschmar e Conti proferiu nova sentença → essa decisão de 28/01/2026 é SENTENÇA de PRIMEIRA_INSTANCIA, NÃO acórdão de segunda instância. Em resultados_por_instancia, registre como { "instancia": "PRIMEIRA_INSTANCIA", "resultado": "...", "referencia": { "peca": "Sentença", ... } }.
 
 TESTE DE VALIDAÇÃO: Para cada entrada em resultados_por_instancia, verifique: (1) Qual autoridade assinou? (2) É juiz de vara → PRIMEIRA_INSTANCIA + peça "Sentença" ou "Despacho". É desembargador/relator → SEGUNDA_INSTANCIA + peça "Acórdão" ou "Decisão Monocrática". Se a classificação não passar nesse teste, corrija antes de gerar o JSON.
+
+8. PROTOCOLO DE PREVALÊNCIA CRONOLÓGICA
+Ancoragem Temporal: Antes de definir resultado_atual ou qualquer classificação de risco, identifique a data da ÚLTIMA decisão de mérito em TODOS os documentos anexados. Decisões mais recentes PREVALECEM sobre decisões anteriores — se uma sentença de 2026 extingue o processo por ilegitimidade, essa decisão anula os efeitos de cálculos homologados ou valores apurados em decisões de 2024/2025.
+Impacto no Passivo: Se a decisão mais recente (independentemente de instância) rejeitou as pretensões do autor ou extinguiu o processo por preliminar acolhida em favor da COPEL, o passivo deve ser reportado como PROTEGIDO/EXTINTO na análise de risco. Nunca reporte passivo financeiro como exposição ativa se a última sentença foi de improcedência/extinção para o autor. Registre em teses_oportunidades o valor anteriormente calculado como referência histórica, indicando que está protegido pela decisão vigente.
+Varredura Obrigatória: Leia TODOS os PDFs anexados até o final antes de definir qualquer campo. Não defina resultado_atual, instancia ou urgencia com base apenas no primeiro documento — a decisão determinante pode estar nas páginas finais do último PDF.
 ---
 
 INSTRUÇÕES CAMPO A CAMPO (mesma ordem do schema)
@@ -240,10 +245,13 @@ VALIDAÇÃO CRUZADA: Após preencher instancia, releia motivo_urgencia e ultima_
   ✓ USE: "Sentença Proferida", "Execução Extinta", "Acórdão Proferido", "Recurso de Revista Inadmitido", "Sentença Homologatória de Cálculos", "Determinação de Retorno à Origem", "Penhora Efetivada", "Agravo de Petição redistribuído ao Relator prevento".
   ✗ EVITE: "Aguardando manifestação da União", "Juntada de Guia", "Expedição de Notificação", atos de secretaria ou intimações automáticas do sistema.
   Se o último ato jurídico relevante preceder atos burocráticos mais recentes, informe o ato jurídico e ignore os burocráticos.
+  Deve refletir o ato mais recente de TODOS os documentos, não apenas do primeiro PDF.
 
 EXCEÇÃO — REDISTRIBUIÇÃO COMO ATO RELEVANTE: Quando a redistribuição for determinada por Desembargador em razão de prevenção (art. 930 CPC), ela constitui ato com impacto jurídico (define o relator que julgará o recurso) e deve ser considerada como movimentação relevante, não meramente burocrática.
 
-- data_movimentacao: Campo de data (schema: string com format date). Use somente ISO 8601 date YYYY-MM-DD. Data em que o juiz ASSINOU o despacho/sentença ou em que a parte PROTOCOLOU a petição — carimbos de protocolo ou assinaturas digitais. NÃO utilize previsão de intimação, prazos automáticos do sistema ou datas de ciência da parte. Se incongruente (OCR) ou ambígua → null.
+- data_movimentacao: Campo de data (schema: string com format date). Use somente ISO 8601 date YYYY-MM-DD. Data em que o juiz ASSINOU o despacho/sentença ou em que a parte PROTOCOLOU a petição — carimbos de protocolo ou assinaturas digitais. NÃO utilize previsão de intimação, prazos automáticos do sistema ou datas de ciência da parte. Se incongruente (OCR) ou ambígua → null. Verifique o ÚLTIMO documento de TODOS os PDFs anexados antes de definir.
+VERIFICAÇÃO DE SAÍDA — INSTÂNCIA: Antes de definir instancia, compare a data da última Sentença (assinada por Juiz de Vara) com a data da última movimentação em TODOS os documentos. Se houver distribuição, redistribuição ou despacho assinado por Desembargador ou Relator em data POSTERIOR à Sentença, a instância é obrigatoriamente SEGUNDA_INSTANCIA. Se o autor interpôs agravo de petição contra a sentença favorável à COPEL e o recurso foi recebido/redistribuído no TRT, o processo TRAMITA HOJE na segunda instância — não na primeira. Certifique-se de que instancia, ultima_movimentacao e data_movimentacao são coerentes entre si.
+
 - suspensao.is_suspenso: true APENAS se o processo está ATUALMENTE suspenso (IRDR, tema repetitivo, efeito suspensivo, acordo, determinação judicial).
 - suspensao.motivo: Obrigatório quando is_suspenso = true. null quando is_suspenso = false.
 - suspensao.referencia: Decisão/despacho que determinou a suspensão. null quando is_suspenso = false.
@@ -270,7 +278,11 @@ Se o processo teve: (1) Sentença de 26/03/2024 rejeitando ilegitimidade → (2)
   { "instancia": "SEGUNDA_INSTANCIA", "resultado": "ILEGITIMIDADE_PENDENTE", "referencia": { "peca": "Acórdão", "pagina": 24, "trecho_resumido": "Determinou retorno dos autos à origem para análise dos embargos à execução — não decidiu mérito da ilegitimidade" } },
   { "instancia": "PRIMEIRA_INSTANCIA", "resultado": "ILEGITIMIDADE_ACOLHIDA", "referencia": { "peca": "Sentença", "pagina": 34, "trecho_resumido": "Rejeitou pretensões do autor reconhecendo ilegitimidade ativa — agravo de petição do autor pendente de julgamento" } }
 ]
-E resultado_atual = "ILEGITIMIDADE_PENDENTE" (porque há agravo recebido pendente).
+E resultado_atual = "ILEGITIMIDADE_ACOLHIDA" (a última decisão de mérito acolheu a tese da COPEL — o agravo pendente do autor é registrado em detalhes, urgencia e pendencias_identificadas, não altera resultado_atual).
+
+REFORÇO — LÓGICA DE SUCESSO PARA ILEGITIMIDADE: Se a última sentença reconheceu a ilegitimidade ativa do autor (extinguindo o processo ou rejeitando pretensões do exequente), resultado_atual = "ILEGITIMIDADE_ACOLHIDA". Sob a ótica da COPEL, o acolhimento da ilegitimidade é uma VITÓRIA — o campo resultado_atual deve refletir o sucesso da tese da Ré. O recurso do autor contra essa decisão deve ser registrado APENAS nos campos detalhes, urgencia e pendencias_identificadas, e NÃO deve alterar resultado_atual para _PENDENTE.
+
+IMPACTO NO PASSIVO: Se a decisão mais recente extinguiu o processo por ilegitimidade ou rejeitou as pretensões do autor, o passivo anteriormente calculado (cálculos homologados, valores de liquidação) deve ser considerado PROTEGIDO/EXTINTO na análise de risco, não como exposição ativa. Registre em teses_oportunidades e motivo_urgencia que o passivo está protegido pela decisão vigente, embora sujeito a reversão em caso de provimento do recurso do autor.
 
 Para PRESCRIÇÃO:
 - status: ATIVA (prazo correndo sem risco imediato), EXTINTA (declarada judicialmente), RISCO (paralisação que pode configurar intercorrente, ainda não declarada).
@@ -294,6 +306,10 @@ Para PRESCRIÇÃO:
 6. gestao_de_risco.urgencia e motivo_urgencia
 - urgencia: Nível mais alto com EVIDÊNCIA DOCUMENTAL (ALTA / MEDIA / BAIXA — ver regra 6).
 - motivo_urgencia: OBRIGATÓRIO. Cite peça, página e trecho documental concreto. Justificativas genéricas como "processo em andamento" são INSUFICIENTES.
+
+FILTRO DE PASSIVO REAL: Se a última sentença de mérito extinguiu o processo sem resolução de mérito (ex: por ilegitimidade) ou julgou improcedentes os pedidos do autor, qualquer valor de liquidação ou cálculos homologados em decisão ANTERIOR (ex: sentença homologatória de cálculos posteriormente anulada) deve ser tratado como VALOR AFASTADO. Não reporte esse valor como risco financeiro ativo nem como passivo exposto — reporte-o como sucesso da tese defensiva da COPEL. Em motivo_urgencia, informe que o passivo está protegido pela decisão vigente e que a urgência decorre apenas do recurso pendente do autor (risco de reversão), não do valor em si.
+
+REGRA DE IDENTIFICAÇÃO DO RECORRENTE: Ao descrever pendências e ações relacionadas a recursos (agravo de petição, recurso ordinário, etc.), identifique SEMPRE quem interpôs o recurso. Se a COPEL VENCEU na última instância e o AUTOR recorreu, a pendência da COPEL é RESPONDER ao recurso do autor (contraminuta), não INTERPOR recurso próprio. Nunca descreva "contraminuta ao agravo das rés" quando o agravo foi interposto pelo AUTOR contra decisão favorável à COPEL — o correto é "contraminuta ao agravo do AUTOR".
 
 7. gestao_de_risco.pendencias_identificadas
 Pendências concretas encontradas nos autos. Para cada:
@@ -333,6 +349,13 @@ REGRA DE JURISPRUDÊNCIA INTERNA: Quando os documentos mencionarem precedentes d
 REGRA DE COERÊNCIA INSTÂNCIA ↔ TESES: O texto de teses_oportunidades deve ser coerente com a classificação de instância em resultados_por_instancia. Se a sentença de fls. 34 foi classificada como PRIMEIRA_INSTANCIA no array, não a descreva como "acórdão de 2ª instância" no texto de teses. Antes de redigir, releia os campos já preenchidos para garantir consistência.
 
 10. HISTORIO
+PROTOCOLO DE ORDENAÇÃO REAL — IDA E VOLTA ENTRE INSTÂNCIAS: Antes de redigir o histórico, mapeie a linha do tempo completa incluindo todas as "idas e voltas" entre instâncias. A ordem cronológica deve refletir a REALIDADE processual, não a ordem dos PDFs. Exemplo de fluxo típico:
+- [Ano A]: Juiz homologa cálculos / acolhe pretensões do autor (COPEL perde).
+- [Ano B]: TRT anula a decisão e manda o juiz rejulgar (COPEL ganha fôlego).
+- [Ano C]: Juiz julga novamente e extingue o processo por ilegitimidade (COPEL vence).
+- [Ano D]: Processo sobe ao TRT para julgar o recurso do autor contra a extinção (Fase Atual).
+A decisão MAIS RECENTE é a que define o estado atual do passivo e da legitimidade. Decisões anteriores anuladas ou superadas devem constar no histórico com indicação de que foram superadas.
+
 PROTOCOLO DE ANÁLISE DE FLUXO: Antes de redigir, mapeie o fluxo de "ida e volta" entre as instâncias. Identifique se houve acórdãos que anularam atos anteriores e determinaram o retorno dos autos à origem (baixa). O histórico deve refletir essa sequência real de eventos, garantindo que a última decisão citada seja a que define o estado atual do passivo e da legitimidade das partes.
 
 ATENÇÃO A FLUXOS NÃO-LINEARES: processos trabalhistas frequentemente têm "vai e vem" entre instâncias (ex.: acórdão que devolve os autos à origem para julgamento de embargos, seguido de nova sentença em 1ª instância). Identifique esse fluxo e registre cada etapa na ordem real em que ocorreu, não na ordem em que as peças aparecem no PDF.
@@ -359,12 +382,16 @@ Estrutura obrigatória dos tópicos (nessa ordem):
 - analise_completa: true se TODOS documentos lidos integralmente sem truncamento. false se algum falhou (detalhar no historico).
 - documentos_insuficientes: true se faltam peças essenciais para determinar fase ou pedidos.
 - requer_prompt_b: true se complexidade exige segunda rodada (dezenas de substituídos, cálculos complexos).
-- processado_em: Data/hora ISO 8601.
+- processado_em: Data/hora ISO 8601 do momento ATUAL de processamento (data do sistema), NÃO a data dos documentos analisados. Se os documentos contêm eventos de 2025 ou 2026, processado_em deve refletir a data atual do sistema (ex: 2026-04-06T...), nunca uma data retroativa como 2024. Uma data de processamento desatualizada invalida a coerência temporal da análise.
 
 CHECKLIST FINAL — EXECUTE ANTES DE GERAR O JSON:
 1. Se ultima_movimentacao menciona "TRT", "Relator", "Desembargador" ou "redistribuído" → instancia DEVE ser "SEGUNDA_INSTANCIA".
-2. Se detalhes ou trecho_resumido menciona "pendente de julgamento" ou "recurso pendente" → resultado_atual DEVE conter "_PENDENTE".
+2. Se a ÚLTIMA decisão de mérito foi favorável à COPEL → resultado_atual DEVE conter "_ACOLHIDA", mesmo que haja recurso pendente (recurso pendente impacta urgencia/pendencias, não resultado_atual). Só use "_PENDENTE" se a tese NUNCA foi decidida por nenhuma instância.
 3. Se pendencias_identificadas contém item MEDIA/ALTA → acoes_recomendadas NÃO pode ser só MONITORAMENTO.
+4. Se existe movimentação de Desembargador/Relator com data POSTERIOR à última Sentença de Juiz de Vara → instancia NÃO pode ser "PRIMEIRA_INSTANCIA".
+5. Se a última sentença extinguiu o processo ou rejeitou pretensões do autor → valores de liquidação anteriores são AFASTADOS, não passivo ativo.
+6. processado_em deve ser a data ATUAL do sistema, não uma data retroativa.
+7. Verifique quem interpôs cada recurso: se a COPEL venceu e o AUTOR recorreu, a pendência da COPEL é contraminuta (INTIMACAO_PENDENTE), não recurso próprio (PRAZO_RECURSAL).
 Se qualquer item falhar, corrija ANTES de retornar o JSON.
 
 FORMATO DE SAÍDA
@@ -401,7 +428,7 @@ function preliminarSchema(nome: string, definicao: string, tese: 'ILEGITIMIDADE'
       instancia: {
         type: 'STRING',
         enum: ['PRIMEIRA_INSTANCIA', 'SEGUNDA_INSTANCIA', 'TERCEIRA_INSTANCIA'],
-        description: 'Instância que proferiu a decisão.',
+        description: 'Determinada pela AUTORIDADE ASSINANTE, não pelo conteúdo ou posição no PDF. Juiz do Trabalho / Juiz Titular de Vara = PRIMEIRA_INSTANCIA (peça = Sentença ou Despacho). Desembargador / Relator / colegiado TRT = SEGUNDA_INSTANCIA (peça = Acórdão). Sentença assinada por Juiz de Vara é SEMPRE PRIMEIRA_INSTANCIA, mesmo após devolução por acórdão.',
       },
       resultado: {
         type: 'STRING',
@@ -429,11 +456,11 @@ function preliminarSchema(nome: string, definicao: string, tese: 'ILEGITIMIDADE'
         type: 'STRING',
         nullable: true,
         enum: enumValues,
-        description: `Resultado da instância mais alta que já decidiu (perspectiva da defesa da COPEL). ${enumValues[0]} = tese aceita. ${enumValues[1]} = tese afastada. ${enumValues[2]} = aguardando decisão. null = nunca analisada judicialmente. Prevalece sempre a instância mais alta sobre decisões de grau inferior.`,
+        description: `Resultado da ÚLTIMA decisão de mérito sobre a tese (perspectiva da COPEL). ${enumValues[0]} = última decisão favorável à COPEL (mesmo com recurso pendente — recurso vai em detalhes/pendências). ${enumValues[1]} = última decisão afastou a tese da COPEL. ${enumValues[2]} = tese alegada mas NUNCA decidida por nenhuma instância. null se nunca analisada judicialmente. Recurso pendente NÃO altera este campo.`,
       },
       resultados_por_instancia: {
         type: 'ARRAY' as const,
-        description: 'Trajetória da tese por instância, em ordem cronológica. Inclua apenas instâncias com decisão documentada nos autos. Array vazio [] se nunca analisada.',
+        description: 'Trajetória COMPLETA da tese em TODAS as instâncias, ordem cronológica. Incluir decisões posteriormente anuladas. Vai-e-vem entre instâncias (sentença → acórdão devolvendo → nova sentença → novo recurso) gera uma entrada para CADA decisão. Array vazio [] se nunca analisada.',
         items: resultadoInstanciaSchema,
       },
       detalhes: {
@@ -469,18 +496,18 @@ const schema = {
         instancia: {
           type: 'STRING',
           enum: ['PRIMEIRA_INSTANCIA', 'SEGUNDA_INSTANCIA', 'TERCEIRA_INSTANCIA'],
-          description: 'Instância onde os autos se encontram ATUALMENTE. Se houve baixa do TST ao TRT → SEGUNDA_INSTANCIA. Se retornaram à Vara → PRIMEIRA_INSTANCIA.',
+          description: 'Onde os autos TRAMITAM HOJE, não onde foi a última decisão. Se existir capa de Agravo de Petição autuado no TRT, redistribuição por Desembargador, ou movimentação de tribunal posterior à sentença → SEGUNDA_INSTANCIA. PRIMEIRA_INSTANCIA somente se último ato for de Juiz de Vara sem recurso posterior. VALIDAÇÃO: se ultima_movimentacao mencionar TRT, Relator ou Desembargador, este campo NÃO pode ser PRIMEIRA_INSTANCIA.',
         },
         ultima_movimentacao: {
           type: 'STRING',
-          description: 'ESTADO JURÍDICO atual do processo — não o ato burocrático mais recente. Prefira eventos com impacto jurídico real. Ex: "Sentença Proferida", "Execução Extinta", "Acórdão Proferido", "Recurso de Revista Inadmitido", "Sentença Homologatória de Cálculos", "Determinação de Retorno à Origem". Ignore atos de secretaria, juntadas de guia ou intimações automáticas do sistema.',
+          description: 'Estado jurídico atual do processo, não ato burocrático. Redistribuição por Desembargador por prevenção (art. 930 CPC) É ato jurídico relevante. Exemplos válidos: "Sentença Proferida", "Acórdão Proferido", "Agravo de Petição redistribuído ao Relator prevento", "Execução Extinta". Ignore atos de secretaria, juntadas de guia ou intimações automáticas.',
         },
         data_movimentacao: {
           type: 'STRING',
           format: 'date',
           nullable: true,
           description:
-            'Tipo lógico: data civil. Valor obrigatoriamente no formato ISO 8601 date (YYYY-MM-DD), ex.: 2023-11-15. Data em que o juiz assinou o despacho/sentença ou em que a parte protocolou a petição — extraída de carimbos de protocolo ou assinatura digital. NÃO use previsão de intimação ou prazos automáticos do sistema. A data deve existir no calendário (29/02 só em ano bissexto). Se incongruente (OCR) ou ambígua → null.',
+            'Data ISO YYYY-MM-DD do evento jurídico mais recente dentre TODOS os documentos anexados. Usar data de assinatura do juiz/desembargador ou protocolo da parte, nunca data de intimação ou prazo. Se redistribuição no TRT for posterior à sentença de Vara, usar data da redistribuição. A data deve existir no calendário (29/02 só em ano bissexto). Se ambígua ou incongruente (OCR) → null.',
         },
         suspensao: {
           type: 'OBJECT',
@@ -580,12 +607,12 @@ const schema = {
           properties: {
             is_substituido: {
               type: 'BOOLEAN',
-              description: 'true se há substituição processual pelo sindicato. false para ação individual.',
+              description: 'true SOMENTE se sindicato atua NESTA ação no polo ativo como substituto processual. false se autor é pessoa física agindo individualmente, mesmo que ACP originária tenha sido proposta por sindicato e mesmo que autor seja filiado a sindicato.',
             },
             sindicato_autor: {
               type: 'STRING',
               nullable: true,
-              description: 'Nome do sindicato que atua NESTA ação. null se ação individual.',
+              description: 'Sindicato atuando NESTA ação no polo ativo como substituto processual. null se autor é pessoa física com advogado particular, mesmo que filiado a sindicato. Refere-se ao sindicato nesta ação específica, não na ACP originária.',
             },
             sindicato_origem_acp: {
               type: 'STRING',
@@ -635,7 +662,7 @@ const schema = {
         urgencia: {
           type: 'STRING',
           enum: ['ALTA', 'MEDIA', 'BAIXA'],
-          description: 'Nível mais alto com EVIDÊNCIA DOCUMENTAL. ALTA = prazo em curso / penhora iminente / falha em preliminar. MEDIA = execução ativa sem prazo aberto. BAIXA = suspenso/encerrado/arquivado. Execução ativa NUNCA recebe BAIXA.',
+          description: 'ALTA: prazo concreto < 15 dias com peça, data de início e vencimento identificáveis, OU risco financeiro iminente (penhora/SISBAJUD); se qualquer desses elementos for desconhecido, use MEDIA. MEDIA: execução ativa, recurso pendente com contraminuta, ou processo ativo sem prazo imediato — execução ativa NUNCA é BAIXA. BAIXA: somente processos suspensos, encerrados ou arquivados sem providência possível.',
         },
         motivo_urgencia: {
           type: 'STRING',
@@ -655,7 +682,7 @@ const schema = {
                   'SISBAJUD', 'OMISSAO_DEFESA', 'DILIGENCIA_PENDENTE',
                   'INTIMACAO_PENDENTE', 'ALVARA', 'LEGITIMIDADE_SINDICAL', 'OUTRO',
                 ],
-                description: 'Categoria da pendência. Use OUTRO apenas quando nenhuma se aplica.',
+                description: 'PRAZO_RECURSAL = COPEL precisa INTERPOR recurso próprio (prazo para recorrer em curso). INTIMACAO_PENDENTE = COPEL precisa RESPONDER a recurso/petição da parte contrária (contraminuta, resposta, manifestação). NUNCA use PRAZO_RECURSAL para contraminuta — contraminuta é resposta a recurso alheio. Use OUTRO apenas quando nenhuma categoria se aplica.',
               },
               urgencia: {
                 type: 'STRING',
@@ -673,7 +700,7 @@ const schema = {
         acoes_recomendadas: {
           type: 'ARRAY',
           description:
-            'Ações concretas cabíveis com evidência nos autos, ordenadas por prioridade. É esperado e correto retornar [] em muitos casos (sem prazo aberto, sem determinação que exija manifestação, processo suspenso/arquivado sem providência, ou defesa já alinhada aos documentos). Não invente itens genéricos para preencher o array. Itens só quando houver base documental clara.',
+            'Ações concretas cabíveis com evidência nos autos, ordenadas por prioridade (mais urgente primeiro). MANIFESTACAO vem ANTES de MONITORAMENTO quando ambas estiverem presentes. É esperado e correto retornar [] em muitos casos (sem prazo aberto, sem determinação que exija manifestação, processo suspenso/arquivado sem providência, ou defesa já alinhada aos documentos). Não invente itens genéricos para preencher o array. Itens só quando houver base documental clara.',
           items: {
             type: 'OBJECT',
             required: ['tipo', 'descricao', 'objetivo_estrategico'],
@@ -681,7 +708,7 @@ const schema = {
               tipo: {
                 type: 'STRING',
                 enum: ['RECURSO', 'PETICAO', 'IMPUGNACAO', 'EMBARGO', 'MANIFESTACAO', 'DILIGENCIA', 'MONITORAMENTO', 'OUTRO'],
-                description: 'Tipo da ação. Use OUTRO somente quando nenhum valor se aplica.',
+                description: 'Se há pendência INTIMACAO_PENDENTE, incluir ação MANIFESTACAO antes de MONITORAMENTO. MANIFESTACAO = atuação ativa da COPEL (contraminuta, resposta). MONITORAMENTO = acompanhamento passivo. Se há pendência MEDIA/ALTA, NÃO pode ter SOMENTE MONITORAMENTO. Use OUTRO somente quando nenhum valor se aplica.',
               },
               descricao: {
                 type: 'STRING',
@@ -713,7 +740,7 @@ const schema = {
     historico: {
       type: 'STRING',
       description:
-        'Resumo cronológico em tópicos com os principais eventos. Use tags HTML <ul> e <li> para cada tópico. Estrutura obrigatória: data de ajuizamento e partes; sindicato (nome e papel, se houver — incluindo sindicato originário da ACP); principais pedidos e resultados (deferido/indeferido/parcial); decisões relevantes e recursos; alvarás expedidos (valor, beneficiário, status de levantamento); fase atual; se analise_estrategica_copel.recurso_revista.existe = true, matéria do RR e despacho correspondente; documentos ilegíveis ou truncados (se houver).',
+        'Resumo cronológico em tópicos. Formate cada item como: <li>[Data ISO] — [Evento jurídico relevante] — [Peça / Página]</li>. Estrutura obrigatória nessa ordem: (1) Ajuizamento: data, partes, matéria principal; (2) Sindicato: nome, papel e sindicato originário da ACP, se houver; (3) Principais decisões de mérito/liquidação em ordem cronológica — cite resultado defensivo da COPEL quando relevante; (4) Recursos interpostos e seus resultados; (5) Alvarás expedidos (valor, beneficiário, status de levantamento), se houver; (6) Fase atual e instância; (7) Matéria do RR e despacho, se recurso_revista.existe = true; (8) Documentos ilegíveis ou truncados, se houver. O último item deve ser a movimentação mais recente nos autos.',
     },
 
     // -----------------------------------------------------------------------

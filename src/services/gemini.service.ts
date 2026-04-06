@@ -170,6 +170,9 @@ export async function callGeminiWithFiles(
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema,
+      temperature: 0,
+      topK: 1,
+      topP: 0.1
     },
   }
 
