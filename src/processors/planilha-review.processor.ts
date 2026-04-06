@@ -1,5 +1,4 @@
 import path from 'path'
-import fs from 'fs/promises'
 import { fetchPlanilhaReviewList, updatePlanilhaReview } from '../services/backend.service.js'
 import { uploadFileToGemini, callGeminiWithFiles, countTokensForFiles, MAX_TOKENS } from '../services/gemini.service.js'
 import { flowA, type FlowAResult } from './flows/flow-a.js'
@@ -37,58 +36,23 @@ function buildPayload(allResults: Record<string, unknown>, numero_processo: stri
   const flowA = allResults['flow-a'] as FlowAResult
   const flowB = allResults['flow-b']
 
-  const {
-    pressupostos,
-    processado_em,
-    fase_processual,
-    requer_prompt_b,
-    analise_completa,
-    documentos_insuficientes,
-    prescricao,
-    historico,
-    pendencias_identificadas,
-    pendencias_estrategicas,
-    acoes_recomendadas,
-    urgency_motivo,
-    count_tokens,
-    is_litispendencia,
-    is_coisa_julgada,
-    is_ilegitimidade,
-    is_suspenso,
-    has_recurso_revista,
-    urgency,
-  } = flowA
+  const { fase_processual, analise_estrategica_copel, gestao_de_risco } = flowA
+  const prelim = analise_estrategica_copel.preliminares_e_prejudiciais
 
-  const json_result: unknown[] = [
-    {
-      pressupostos,
-      processado_em,
-      fase_processual,
-      requer_prompt_b,
-      analise_completa,
-      documentos_insuficientes,
-      prescricao,
-      historico,
-      pendencias_identificadas,
-      pendencias_estrategicas,
-      acoes_recomendadas,
-      urgency_motivo,
-      count_tokens,
-    },
-  ]
+  const json_result: unknown[] = [flowA]
   if (flowB) json_result.push(flowB)
 
   return {
     instancia: fase_processual.instancia,
     ultima_movimentacao: fase_processual.ultima_movimentacao,
-    data_ultima_movimentacao: fase_processual.data_ultima_movimentacao,
+    data_ultima_movimentacao: fase_processual.data_movimentacao,
     numero_processo,
-    is_litispendencia,
-    is_coisa_julgada,
-    is_ilegitimidade,
-    is_suspenso,
-    has_recurso_revista,
-    urgency,
+    is_litispendencia: prelim.litispendencia.resultado_atual !== null,
+    is_coisa_julgada: prelim.coisa_julgada.resultado_atual !== null,
+    is_ilegitimidade: prelim.ilegitimidade.resultado_atual !== null,
+    is_suspenso: fase_processual.suspensao.is_suspenso,
+    has_recurso_revista: analise_estrategica_copel.recurso_revista.existe,
+    urgency: gestao_de_risco.urgencia,
     json_result,
   }
 }
