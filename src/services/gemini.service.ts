@@ -1,18 +1,11 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { getEnv } from '../config/env.js'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com'
 
 function apiKey(): string {
   return getEnv().GEMINI_API_KEY
-}
-
-let _genai: GoogleGenerativeAI | null = null
-function getGenAI(): GoogleGenerativeAI {
-  if (!_genai) _genai = new GoogleGenerativeAI(apiKey())
-  return _genai
 }
 
 export interface GeminiFileRef {
@@ -118,61 +111,47 @@ async function waitForFileActive(name: string, maxAttempts = 15): Promise<void> 
   throw new Error(`Gemini file never became ACTIVE after ${maxAttempts} attempts: ${name}`)
 }
 
-// Gemini 1.5 Flash context window (tokens)
+// Gemini 2.5 Flash context window (tokens)
 const MAX_TOKENS = 1_048_576
+
+/** Mesmo generationConfig em countTokens e generateContent para o total bater. */
+function buildJsonGenerationConfig(responseSchema: object): Record<string, unknown> {
+  const cfg: Record<string, unknown> = {
+    responseMimeType: 'application/json',
+    responseSchema,
+    // temperature: 0,
+    // topK: 1,
+    // topP: 0.1,
+    maxOutputTokens: 8192,
+    thinkingConfig: { thinkingBudget: 8192 },
+  }
+  return cfg
+}
 
 /**
  * Conta os tokens que os arquivos + prompt vão ocupar no contexto do Gemini.
- * Usa a Files API (fileUri já deve estar ACTIVE).
- * Retorna o total de tokens.
+ * Usa a REST API (mesma que o generateContent) para garantir consistência.
+ * Inclui o responseSchema na contagem, pois ele consome tokens no contexto.
  */
 export async function countTokensForFiles(
   files: GeminiFileRef[],
-  prompt: string
+  prompt: string,
+  responseSchema?: object
 ): Promise<number> {
   const model = getEnv().GEMINI_MODEL
-  const genModel = getGenAI().getGenerativeModel({ model })
-
-  const fileParts = files.map((f) => ({
-    fileData: { mimeType: f.mimeType, fileUri: f.uri },
-  }))
-
-  const { totalTokens } = await genModel.countTokens({
-    contents: [{ role: 'user', parts: [...fileParts, { text: prompt }] }],
-  })
-
-  return totalTokens
-}
-
-export { MAX_TOKENS }
-
-/**
- * Calls Gemini generateContent with one or more file references and returns the parsed JSON result.
- */
-export async function callGeminiWithFiles(
-  files: GeminiFileRef[],
-  prompt: string,
-  responseSchema: object
-): Promise<unknown> {
-  const model = getEnv().GEMINI_MODEL
-  const url = `${BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey()}`
+  const url = `${BASE_URL}/v1beta/models/${model}:countTokens?key=${apiKey()}`
 
   const fileParts = files.map((f) => ({
     file_data: { mime_type: f.mimeType, file_uri: f.uri },
   }))
 
-  const body = {
-    contents: [
-      {
-        parts: [...fileParts, { text: prompt }],
-      },
-    ],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema,
-      temperature: 0,
-      topK: 1,
-      topP: 0.1
+  const body: Record<string, unknown> = {
+    generateContentRequest: {
+      model: `models/${model}`,
+      contents: [{ parts: [...fileParts, { text: prompt }] }],
+      ...(responseSchema && {
+        generationConfig: buildJsonGenerationConfig(responseSchema),
+      }),
     },
   }
 
@@ -180,15 +159,64 @@ export async function callGeminiWithFiles(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120_000),
+    signal: AbortSignal.timeout(30_000),
   })
 
   if (!response.ok) {
     const text = await response.text()
-    throw new Error(`Gemini generateContent failed [${response.status}]: ${text}`)
+    throw new Error(`Gemini countTokens failed [${response.status}]: ${text}`)
   }
 
-  const json = (await response.json()) as {
+  const json = (await response.json()) as { totalTokens?: number }
+  return json.totalTokens ?? 0
+}
+
+export { MAX_TOKENS }
+
+export class GeminiTokenLimitError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'GeminiTokenLimitError'
+  }
+}
+
+/** Gemini generateContent com JSON schema. `files` pode ser [] (só texto, ex. merge de parciais). */
+export async function callGeminiWithFiles(
+  files: GeminiFileRef[],
+  prompt: string,
+  responseSchema: object,
+): Promise<unknown> {
+  const model = getEnv().GEMINI_MODEL
+  const url = `${BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey()}`
+
+  const body = {
+    contents: [{
+      parts: [
+        ...files.map((f) => ({ file_data: { mime_type: f.mimeType, file_uri: f.uri } })),
+        { text: prompt },
+      ],
+    }],
+    generationConfig: buildJsonGenerationConfig(responseSchema),
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(600_000),
+  })
+
+  const responseText = await response.text()
+
+  if (!response.ok) {
+    const isTokenLimit = response.status === 400 && /token|context|size|exceed/i.test(responseText)
+    if (isTokenLimit) {
+      throw new GeminiTokenLimitError(`Gemini context limit exceeded [${response.status}]: ${responseText}`)
+    }
+    throw new Error(`Gemini generateContent failed [${response.status}]: ${responseText}`)
+  }
+
+  const json = JSON.parse(responseText) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
   }
 
@@ -197,5 +225,64 @@ export async function callGeminiWithFiles(
     throw new Error(`Gemini returned no text content: ${JSON.stringify(json)}`)
   }
 
-  return JSON.parse(text) as unknown
+  return parseGeminiJson(text)
+}
+
+/**
+ * Parses JSON returned by Gemini, escaping any literal control characters
+ * that Gemini sometimes emits raw inside string values (invalid per JSON spec).
+ */
+function parseGeminiJson(text: string): unknown {
+  const sanitized = sanitizeJsonControlChars(text)
+  try {
+    return JSON.parse(sanitized)
+  } catch {
+    // Fallback: strip ```json ... ``` wrapper Gemini sometimes adds
+    const codeBlock = sanitized.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    if (codeBlock) return JSON.parse(codeBlock[1])
+    throw new Error(`Gemini response is not valid JSON: ${text.slice(0, 300)}`)
+  }
+}
+
+/**
+ * Walks the JSON text character-by-character and escapes literal control
+ * characters (codepoint < 0x20) only when inside a JSON string value.
+ * Characters outside strings are left untouched (they are valid whitespace).
+ */
+function sanitizeJsonControlChars(text: string): string {
+  const ESCAPES: Record<string, string> = {
+    '\n': '\\n',
+    '\r': '\\r',
+    '\t': '\\t',
+    '\b': '\\b',
+    '\f': '\\f',
+  }
+  let result = ''
+  let inString = false
+  let escaped = false
+
+  for (const ch of text) {
+    if (escaped) {
+      result += ch
+      escaped = false
+      continue
+    }
+    if (ch === '\\' && inString) {
+      result += ch
+      escaped = true
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+      result += ch
+      continue
+    }
+    if (inString && ch.charCodeAt(0) < 0x20) {
+      result += ESCAPES[ch] ?? `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`
+      continue
+    }
+    result += ch
+  }
+
+  return result
 }
