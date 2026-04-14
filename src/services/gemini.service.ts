@@ -119,11 +119,9 @@ function buildJsonGenerationConfig(responseSchema: object): Record<string, unkno
   const cfg: Record<string, unknown> = {
     responseMimeType: 'application/json',
     responseSchema,
-    // temperature: 0,
-    // topK: 1,
-    // topP: 0.1,
+    temperature: 1, 
     maxOutputTokens: 8192,
-    thinkingConfig: { thinkingBudget: 8192 },
+    thinkingConfig: { thinkingBudget: 4096 }, 
   }
   return cfg
 }

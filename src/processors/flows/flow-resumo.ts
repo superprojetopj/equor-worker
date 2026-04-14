@@ -3,41 +3,78 @@ import path from 'path'
 import fs from 'fs/promises'
 import { PDFDocument } from 'pdf-lib'
 import type { ProcessorFlow } from '../planilha-review.processor.js'
+import { flowConsolidacao } from './flow-consolidacao.js'
 
 // ---------------------------------------------------------------------------
 // Prompt
 // ---------------------------------------------------------------------------
 const FLOW_RESUMO_PROMPT = `
-Você é um Especialista em Auditoria Jurídica Trabalhista Sênior. Sua tarefa é analisar o texto dos autos fornecidos (referentes a um cumprimento de sentença) e extrair informações cruciais para um relatório de auditoria.
+## Persona:
+Você é um Analista Jurídico Sênior especializado em execuções trabalhistas e auditoria de passivos. Sua tarefa é analisar os autos de um cumprimento de sentença e extrair informações cruciais, com foco em estratégia processual e cronologia.
 
-INSTRUÇÕES DE ANÁLISE:
-Identificação: 
-Número do processo (formato CNJ).
-Objeto da ação original.
-Instância atual.
-Última movimentação relevante e significativa (ignore despachos de mero expediente).
+## Onde encontrar as informações:
+- Dados Básicos: Petição Inicial e Capa do Processo.
+- Preliminares e Prejudiciais: Analise comparativamente a Petição Inicial (onde pode haver refutação antecipada), a Impugnação/Defesa da Executada e manifestações subsequentes.
+- Conflito Sindical: Compare a representação mencionada na Inicial com os dados da Ficha Financeira/Histórico Funcional.
 
-Análise Técnica:
-Preliminares: Você DEVE listar as três preliminares abaixo, indicando se foram ou não arguídas. Se não houver menção ou argumentação nos autos, escreva "Não identificado nos documentos fornecidos":
-Litispendência:
-Coisa Julgada:
-Ilegitimidade:
-Conflito entre sindicatos: Informe se foi identificado conflito de representação sindical.
-Tipo de Ação: Classifique como ação individual ou coletiva.
-Prescrição: Identifique se há argumento de prescrição (especificando o tipo, se houver).
-Matéria central do processo: Defina a matéria (ex: horas extras, verbas rescisórias, auxílio-alimentação, etc.).
+## INSTRUÇÕES DE ANÁLISE:
 
-Restrição: Seja estritamente factual. Baseie-se apenas nos documentos fornecidos.
+1. Cronologia e Status:
+   - Determine a "Instância Atual" baseando-se na data da peça mais recente. 
+   - Estabeleça a linha do tempo: se a última peça for um Recurso de Revista, o status é Instância Extraordinária (3ª Instância), e assim por diante.
+
+2. Argumentação Indireta e Tácita:
+   - Considere "Argumentação" não apenas a citação direta de artigos, mas qualquer esforço narrativo para excluir responsabilidade, questionar cálculos com base em premissas de prescrição ou atacar a legitimidade da parte.
+
+3. Análise de Preliminares (Litispendência, Coisa Julgada, Ilegitimidade, Prescrição):
+   - **IMPORTANTE (Antecipação do Exequente):** Verifique se o Exequente, na petição inicial/de cumprimento, já tentou refutar preventivamente uma preliminar (ex: "não há que se falar em prescrição pois..."). 
+   - Se o Exequente antecipou o tema e a Executada (Copel) se manteve silente em sua defesa, classifique como "Não arguida pela ré (silêncio após antecipação do exequente)".
+   - Para cada preliminar, indique: "Arguida", "Não identificada" ou "Refutada antecipadamente pelo autor sem oposição específica da ré".
+
+4. Conflito entre Sindicatos:
+   - Informe se há divergência entre o sindicato autor da ação e o sindicato que consta na ficha financeira. Se houver divergência e a Copel não arguiu ilegitimidade, destaque como "Omissão de tese defensiva".
+
+## ESTRUTURA DO RESUMO (Técnica):
+- **Identificação:** Número CNJ, Objeto, Instância (com base na última movimentação), Autor (nome completo do autor) e Tipo de Ação.
+- **Análise Técnica:** - Liste Litispendência, Coisa Julgada, Ilegitimidade e Prescrição.
+    - Para Prescrição, especifique o marco temporal e se é bienal ou quinquenal.
+    - Descreva o comportamento da defesa: se houve enfrentamento direto, indireto ou falta de argumentação estratégica.
+
+## RESTRIÇÕES:
+- Seja estritamente factual.
+- Retorne EXCLUSIVAMENTE um objeto JSON.
+- Sempre que citar uma peça processual, utilize o ID alfanumérico (ex: 0ef0192) em vez do número da folha, ou não citar.
 
 FORMATO DE SAÍDA:
-Retorne EXCLUSIVAMENTE um objeto JSON no formato: {"resumo": "conteúdo_html"}.
-O "conteúdo_html" deve conter as informações organizadas em tags <h3>, <ul> e <li> para garantir a leitura estruturada.
+{"resumo": "conteúdo_html"}
+(Use tags <h3>, <ul> e <li> para estruturar o relatório).
+
+O "conteúdo_html" deve seguir RIGOROSAMENTE este modelo de tags, sem variações:
+
+<h3>Identificação</h3>
+<ul>
+  <li><strong>Número do Processo:</strong> [Número CNJ]</li>
+  <li><strong>Objeto:</strong> [Objeto da ação]</li>
+  <li><strong>Instância Atual:</strong> [Xª Instância]</li>
+  <li><strong>Autor:</strong> [Nome Completo]</li>
+  <li><strong>Matéria Central:</strong> [Matéria Central e verba principal]</li>
+  <li><strong>Tipo de Ação/ Execução:</strong> [Individual ou Coletiva]</li>
+</ul>
+
+<h3>Análise Técnica</h3>
+<p>Preliminares:</p>
+<ul>
+  <li><strong>Litispendência:</strong> ["Arguido em X" ou "Não identificada"]</li>
+  <li><strong>Coisa Julgada:</strong> ["Arguida em X" ou "Não identificada"]</li>
+  <li><strong>Ilegitimidade:</strong> ["Arguida em X" ou "Não identificada"]</li>
+  <li><strong>Prescrição:</strong> [Tipo: Bienal/Quinquenal | Resumo do argumento]</li>
+  <li><strong>Conflito Sindical:</strong> [Relatar divergências ou "Não identificada"]</li>
+</ul>
 `.trim();
 
 const buildIncrementalSuffix = (
   previousResumo: string,
   currentPartNumber: number,
-  totalParts: number,
   fileName: string,
  ) => {
    return `
@@ -106,38 +143,27 @@ export const flowResumo: ProcessorFlow = {
     fileName = 'desconhecido',
   ): string {
     const previousResumo = (previousResult as FlowResumoGeminiResult | null)?.resumo ?? ''
-    return `${FLOW_RESUMO_PROMPT}\n\n${buildIncrementalSuffix(previousResumo, partIndex + 1, totalParts, fileName)}`
+    return `${FLOW_RESUMO_PROMPT}\n\n${buildIncrementalSuffix(previousResumo, partIndex + 1, fileName)}`
   },
 
-  // next: {
-  //   flow: flowConsolidacao,
-  //   when: () => true,
-  // },
+  next: {
+    flow: flowConsolidacao,
+    when: () => true,
+  },
 
   async getFiles(numero_processo: string): Promise<string[]> {
-    const label = `[flow-resumo:getFiles][${numero_processo}]`
-    const filePath = path.join(
-      os.homedir(), 'Downloads', 'EQUOR', 'Processos', '2024-2026', numero_processo, `${numero_processo}.pdf`,
-    )
-    console.log(`${label} Procurando PDF em ${filePath}`)
-    try {
-      await fs.access(filePath)
-    } catch {
-      console.warn(`${label} Arquivo não encontrado ou sem acesso — retornando lista vazia`)
-      return []
-    }
-    return [filePath]
-  },
-
-  async getPartitionedFiles(numero_processo: string): Promise<string[]> {
     const label = `[flow-resumo:getPartitionedFiles][${numero_processo}]`
-    const dir = path.join(os.homedir(), 'Downloads', 'EQUOR', 'Processos', '2024-2026', numero_processo)
+    const dir = path.join(os.homedir(), 'Downloads', 'EQUOR', 'Processos', 'julia', numero_processo)
     const filePath = path.join(dir, `${numero_processo}.pdf`)
 
     const pdfBytes = await fs.readFile(filePath)
     const srcDoc = await PDFDocument.load(pdfBytes)
     const totalPages = srcDoc.getPageCount()
     console.log(`${label} PDF carregado: ${totalPages} página(s)`)
+
+    if (totalPages < 1000) {
+      return [filePath]
+    }
 
     const MAX_CHUNK = 250
     const OVERLAP = 12
@@ -148,6 +174,7 @@ export const flowResumo: ProcessorFlow = {
 
     const partsDir = path.join(dir, 'parts')
     console.log(`${label} Dividindo em ${numParts} partes (chunk=${chunk}, overlap=${OVERLAP}, dir=${partsDir})`)
+    await fs.rm(partsDir, { recursive: true, force: true })
     await fs.mkdir(partsDir, { recursive: true })
 
     const parts: string[] = []
