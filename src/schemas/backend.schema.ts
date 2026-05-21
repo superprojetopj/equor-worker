@@ -43,7 +43,17 @@ const EmpresaSchema = z.looseObject({
   socios: z.array(SocioSchema).default([]),
 })
 
+const ProcessoSchema = z.looseObject({
+  process_number: z.string(),
+  title: z.string().optional(),
+  objeto_do_contrato: z.string().optional(),
+  valores_e_multas: z.string().optional(),
+  date_start: z.string().optional(),
+  date_end: z.string().optional(),
+})
+
 const MetadataSchema = z.looseObject({
+  processo: ProcessoSchema.optional(),
   contratantes: z.array(EmpresaSchema).optional(),
   contratadas: z.array(EmpresaSchema).optional(),
 })
@@ -67,12 +77,7 @@ const ProcessDocumentDataSchema = z.object({
   context_files: z.array(ContextFileRefSchema).default([]),
 })
 
-const ProcessDataSchema = z.object({
-  process_number: z.string(),
-  documents: z.array(ProcessDocumentDataSchema),
-})
-
-export const BackendProcessResponseSchema = z.object({
-  process: ProcessDataSchema,
+export const BackendProcessDocumentResponseSchema = z.object({
+  document: ProcessDocumentDataSchema,
   metadata: MetadataSchema.optional(),
 })

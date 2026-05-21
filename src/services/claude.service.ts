@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createRequire } from 'module'
 const mammoth = createRequire(import.meta.url)('mammoth') as typeof import('mammoth')
 import { getEnv } from '../config/env.js'
-import type { ClaudeRequest, ContextFile } from '../types/claude.types.js'
+import type { AIRequest, ContextFile } from '../types/ai.types.js'
 import { systemPrompt } from '../prompts/system.prompt.js'
 import { fillPlaceholdersPrompt } from '../prompts/fill-placeholders.prompt.js'
 
@@ -59,7 +59,7 @@ async function fileToBlock(file: ContextFile): Promise<Block> {
   }
 }
 
-async function buildUserContent(req: ClaudeRequest): Promise<Block[]> {
+async function buildUserContent(req: AIRequest): Promise<Block[]> {
   const fileBlocks = await Promise.all(req.contextFiles.map(fileToBlock))
 
   const blocks: Block[] = [...fileBlocks]
@@ -79,7 +79,7 @@ async function buildUserContent(req: ClaudeRequest): Promise<Block[]> {
   return blocks
 }
 
-export async function callClaude(req: ClaudeRequest): Promise<string> {
+export async function callClaude(req: AIRequest): Promise<string> {
   const abort = AbortSignal.timeout(600_000)
 
   const response = await getClient().messages.create(

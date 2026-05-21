@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { getEnv } from './config/env.js'
 import { buildServer } from './server.js'
 import { beginShutdown, waitForDrain } from './lib/shutdown.js'
+import { runPlanilhaReviewProcessor } from './processors/planilha-review.processor.js'
 
 async function main() {
   const env = getEnv()
@@ -25,6 +26,9 @@ async function main() {
 
   process.on('SIGTERM', () => onSignal('SIGTERM'))
   process.on('SIGINT', () => onSignal('SIGINT'))
+
+  // await runPlanilhaReviewProcessor()
+  // app.log.info('PlanilhaReview completed, exiting...')
 }
 
 main().catch((err) => {

@@ -45,7 +45,17 @@ export interface Empresa {
   [key: string]: unknown
 }
 
+export interface ProcessoInfo {
+  process_number: string
+  title?: string
+  objeto_do_contrato?: string
+  valores_e_multas?: string
+  date_start?: string
+  date_end?: string
+}
+
 export interface ProcessMetadata {
+  processo?: ProcessoInfo
   contratantes?: Empresa[]
   contratadas?: Empresa[]
   [key: string]: unknown
@@ -53,11 +63,8 @@ export interface ProcessMetadata {
 
 // ── Document / Process ──
 
-export interface ContextFileRef {
-  gcs_path: string
-  file_name: string
-  media_type: string
-}
+import type { ContextFileRef } from './storage.types.js'
+export type { ContextFileRef }
 
 export interface PromptItem {
   id: string
@@ -72,14 +79,9 @@ export interface ProcessDocumentData {
   context_files: ContextFileRef[]
 }
 
-export interface ProcessData {
-  process_number: string
-  documents: ProcessDocumentData[]
-}
-
-export interface BackendProcessResponse {
-  process: ProcessData
-  metadata?: ProcessMetadata
+export interface BackendProcessDocumentResponse {
+  document: ProcessDocumentData
+  metadata: ProcessMetadata
 }
 
 // ── Report back to backend ──

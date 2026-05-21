@@ -1,9 +1,22 @@
+import type { FastifyReply, FastifyRequest } from 'fastify'
+import pino from 'pino'
+
+const log = pino({ name: 'worker' })
+
 let inFlight = 0
 let shuttingDown = false
 let drainResolve: (() => void) | null = null
 
 export function isShuttingDown(): boolean {
   return shuttingDown
+}
+
+export async function shutdownGuard(_: FastifyRequest, reply: FastifyReply): Promise<void> {
+  if (shuttingDown) reply.code(503).send({ error: 'Worker is shutting down' })
+}
+
+export function dispatch(task: Promise<void>, context: Record<string, unknown> = {}): void {
+  trackTask(task.catch((err) => log.error({ ...context, err }, 'Unhandled task error')))
 }
 
 export function beginShutdown(): void {
