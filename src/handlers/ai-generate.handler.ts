@@ -12,7 +12,9 @@ function assertFileSizes(files: ContextFile[]): void {
     const bytes = Buffer.byteLength(file.base64Data, 'base64')
     if (bytes > MAX_FILE_SIZE) {
       const mb = (bytes / 1024 / 1024).toFixed(1)
-      throw new Error(`File "${file.fileName ?? file.mediaType}" is ${mb}MB — exceeds the 20MB inline limit`)
+      throw new Error(
+        `File "${file.fileName ?? file.mediaType}" is ${mb}MB — exceeds the 20MB inline limit`
+      )
     }
   }
 }
@@ -27,10 +29,16 @@ const log = pino({ name: 'ai-generate' })
 
 const SYSTEM_INSTRUCTION = `${systemPrompt}\n\n---\n\n${fillPlaceholdersPrompt}`
 
-function buildContent(fileParts: GeminiPart[], instruction: string, metadata: ProcessMetadata): GeminiPart[] {
+function buildContent(
+  fileParts: GeminiPart[],
+  instruction: string,
+  metadata: ProcessMetadata
+): GeminiPart[] {
   return [
     ...fileParts,
-    { text: `<metadata role="structured-data">\n${JSON.stringify(metadata, null, 2)}\n</metadata>` },
+    {
+      text: `<metadata role="structured-data">\n${JSON.stringify(metadata, null, 2)}\n</metadata>`,
+    },
     { text: `<instruction>\n${instruction}\n</instruction>` },
   ]
 }
@@ -69,7 +77,10 @@ async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
   }
 }
 
-export async function aiGenerateHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function aiGenerateHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> {
   const payload = AiGeneratePayloadSchema.parse(request.body)
 
   reply.code(202).send({

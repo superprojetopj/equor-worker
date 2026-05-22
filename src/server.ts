@@ -2,7 +2,8 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import sensible from '@fastify/sensible'
 import { createLogger } from './lib/logger.js'
-import { taskRoutes } from './routes/ai-generate.route.js'
+import { aiRoutes } from './routes/ai-generate.route.js'
+import { signRoutes } from './routes/signature.route.js'
 
 export async function buildServer() {
   const logger = createLogger()
@@ -13,7 +14,8 @@ export async function buildServer() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   })
   await app.register(sensible)
-  await app.register(taskRoutes)
+  await app.register(aiRoutes)
+  await app.register(signRoutes)
 
   return app
 }

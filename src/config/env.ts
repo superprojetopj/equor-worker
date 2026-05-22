@@ -9,9 +9,16 @@ const EnvSchema = z.object({
 
   BACKEND_URL: z.url(),
   BACKEND_AI_GENERATE_PATH: z.string().default('/worker/{processDocumentId}/ai-generate-task-data'),
-  BACKEND_AI_GENERATE_RESULT_PATH: z.string().default('/worker/{processDocumentId}/ai-generate-result'),
+  BACKEND_AI_GENERATE_RESULT_PATH: z
+    .string()
+    .default('/worker/{processDocumentId}/ai-generate-result'),
+  BACKEND_SIGN_TASK_DATA_PATH: z.string().default('/worker/{processDocumentId}/sign-task-data'),
+  BACKEND_SIGN_TASK_RESULT_PATH: z.string().default('/worker/{processDocumentId}/sign-result'),
 
-  WORKER_SECRET: z.string().min(1).transform((s) => s.trim()),
+  WORKER_SECRET: z
+    .string()
+    .min(1)
+    .transform((s) => s.trim()),
 
   GCS_BUCKET_NAME: z.string().min(1),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),

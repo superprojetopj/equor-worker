@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify'
-import { aiGenerateHandler } from '../handlers/ai-generate.handler.js'
+import { signHandler } from '../handlers/signature.handler.js'
 import { verifyAuth } from '../middleware/auth.middleware.js'
 import { shutdownGuard } from '../lib/shutdown.js'
 
-export async function aiRoutes(app: FastifyInstance) {
-  app.post('/ai-generate', {
+export async function signRoutes(app: FastifyInstance) {
+  app.post('/signature', {
     preHandler: [shutdownGuard, verifyAuth],
-    handler: aiGenerateHandler,
+    handler: signHandler,
   })
 }

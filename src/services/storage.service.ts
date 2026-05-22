@@ -24,6 +24,12 @@ async function downloadFromGCS(gcsPath: string): Promise<string> {
   return contents.toString('base64')
 }
 
+export async function uploadToGCS(gcsPath: string, buffer: Buffer): Promise<string> {
+  const file = getBucket().file(gcsPath)
+  await file.save(buffer, { contentType: 'application/pdf', resumable: false })
+  return gcsPath
+}
+
 export async function getBase64ContextFiles(files: ContextFileRef[]): Promise<ContextFile[]> {
   return Promise.all(
     files.map(async (f) => ({

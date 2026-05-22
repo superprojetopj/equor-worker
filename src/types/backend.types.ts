@@ -98,3 +98,36 @@ export interface DocumentResultPayload {
   prompts: PromptResult[]
   error_message: string | null
 }
+
+// ── Sign Task Data ──
+
+export interface Signature {
+  name: string
+  cpf: string
+  email: string
+}
+
+export interface SignDocument {
+  id: number
+  title: string
+  process_number: string
+}
+
+export interface BackendSignDocumentResponse {
+  document: SignDocument
+  signatures: Signature[]
+}
+
+export interface SignatoryResult {
+  name: string
+  email: string
+  share_link: string
+}
+
+export interface SignTaskResultPayload {
+  status: DocumentStatus
+  contraktor_contract_id?: string
+  gcs_path?: string
+  signatories?: SignatoryResult[]
+  error_message: string | null
+}

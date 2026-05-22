@@ -81,3 +81,22 @@ export const BackendProcessDocumentResponseSchema = z.object({
   document: ProcessDocumentDataSchema,
   metadata: MetadataSchema.optional(),
 })
+
+// ── Sign Task Data ──
+
+const SignatureSchema = z.object({
+  name: z.string(),
+  cpf: z.string(),
+  email: z.string(),
+})
+
+const SignDocumentSchema = z.object({
+  id: z.number().int(),
+  title: z.string(),
+  process_number: z.string(),
+})
+
+export const BackendSignDocumentResponseSchema = z.object({
+  document: SignDocumentSchema,
+  signatures: z.array(SignatureSchema).default([]),
+})
