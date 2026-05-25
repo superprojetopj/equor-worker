@@ -23,17 +23,35 @@ const EnvSchema = z.object({
   GCS_BUCKET_NAME: z.string().min(1),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
 
-  // AI Services
+  // AI Provider
+  AI_PROVIDER: z.enum(['claude', 'gemini']).default('claude'),
+
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   CLAUDE_MODEL: z.string().default('claude-sonnet-4-6'),
 
-  // Gemini
-  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_API_KEY: z.string().min(1).optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash-lite'),
 
   // Contraktor
   CONTRAKTOR_API_URL: z.url(),
   CONTRAKTOR_API_TOKEN: z.string().min(1),
+})
+
+const EnvSchemaFinal = EnvSchema.superRefine((env, ctx) => {
+  if (env.AI_PROVIDER === 'claude' && !env.ANTHROPIC_API_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'ANTHROPIC_API_KEY is required when AI_PROVIDER=claude',
+      path: ['ANTHROPIC_API_KEY'],
+    })
+  }
+  if (env.AI_PROVIDER === 'gemini' && !env.GEMINI_API_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'GEMINI_API_KEY is required when AI_PROVIDER=gemini',
+      path: ['GEMINI_API_KEY'],
+    })
+  }
 })
 
 export type Env = z.infer<typeof EnvSchema>
@@ -42,7 +60,7 @@ let _env: Env | null = null
 
 export function getEnv(): Env {
   if (!_env) {
-    _env = EnvSchema.parse(process.env)
+    _env = EnvSchemaFinal.parse(process.env)
   }
   return _env
 }

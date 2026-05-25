@@ -48,8 +48,8 @@ const ProcessoSchema = z.looseObject({
   title: z.string().optional(),
   objeto_do_contrato: z.string().optional(),
   valores_e_multas: z.string().optional(),
-  date_start: z.string().optional(),
-  date_end: z.string().optional(),
+  date_start: z.string().nullish(),
+  date_end: z.string().nullish(),
 })
 
 const MetadataSchema = z.looseObject({

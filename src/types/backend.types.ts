@@ -50,8 +50,8 @@ export interface ProcessoInfo {
   title?: string
   objeto_do_contrato?: string
   valores_e_multas?: string
-  date_start?: string
-  date_end?: string
+  date_start?: string | null
+  date_end?: string | null
 }
 
 export interface ProcessMetadata {

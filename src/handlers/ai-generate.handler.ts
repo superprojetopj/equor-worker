@@ -1,9 +1,21 @@
-import pino from 'pino'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { AiGeneratePayloadSchema } from '../schemas/ai-generate.schema.js'
 import type { AiGeneratePayload } from '../schemas/ai-generate.schema.js'
 import type { PromptResult, ProcessMetadata } from '../types/backend.types.js'
-import type { ContextFile } from '../types/ai.types.js'
+import type { AIContentPart, ContextFile } from '../types/ai.types.js'
+import { fetchProcessDocumentData, reportAiGenerateResult } from '../services/backend.service.js'
+import { contextFileToPart } from '../services/context.service.js'
+import { getBase64ContextFiles } from '../services/storage.service.js'
+import { dispatch } from '../lib/shutdown.js'
+import { aiGenerateSystemInstruction } from '../prompts/ai-generate.prompt.js'
+import { getEnv } from '../config/env.js'
+import { callClaude } from '../services/claude.service.js'
+import { callGemini } from '../services/gemini.service.js'
+import type { AIProviderRequest } from '../types/ai.types.js'
+
+function callAI(req: AIProviderRequest): Promise<string> {
+  return getEnv().AI_PROVIDER === 'claude' ? callClaude(req) : callGemini(req)
+}
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
 
@@ -18,22 +30,12 @@ function assertFileSizes(files: ContextFile[]): void {
     }
   }
 }
-import { fetchProcessDocumentData, reportAiGenerateResult } from '../services/backend.service.js'
-import { callGemini, contextFileToPart, type GeminiPart } from '../services/gemini.service.js'
-import { getBase64ContextFiles } from '../services/storage.service.js'
-import { dispatch } from '../lib/shutdown.js'
-import { systemPrompt } from '../prompts/system.prompt.js'
-import { fillPlaceholdersPrompt } from '../prompts/fill-placeholders.prompt.js'
-
-const log = pino({ name: 'ai-generate' })
-
-const SYSTEM_INSTRUCTION = `${systemPrompt}\n\n---\n\n${fillPlaceholdersPrompt}`
 
 function buildContent(
-  fileParts: GeminiPart[],
+  fileParts: AIContentPart[],
   instruction: string,
   metadata: ProcessMetadata
-): GeminiPart[] {
+): AIContentPart[] {
   return [
     ...fileParts,
     {
@@ -45,6 +47,7 @@ function buildContent(
 
 async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
   const { processDocumentId } = payload
+
   try {
     const { document, metadata } = await fetchProcessDocumentData(processDocumentId)
     const { prompts, context_files } = document
@@ -56,23 +59,23 @@ async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
 
     const base64ContextFiles = await getBase64ContextFiles(context_files)
     assertFileSizes(base64ContextFiles)
+
     const fileParts = await Promise.all(base64ContextFiles.map(contextFileToPart))
 
     const results: PromptResult[] = []
     for (const prompt of prompts) {
       const content = buildContent(fileParts, prompt.prompt, metadata)
-      const result_html = await callGemini({ content, systemInstruction: SYSTEM_INSTRUCTION })
+      const result_html = await callAI({ content, systemInstruction: aiGenerateSystemInstruction })
       results.push({ prompt_id: prompt.id, result_html })
     }
 
     await reportAiGenerateResult(processDocumentId, 'COMPLETED', results)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    log.error({ processDocumentId, error: message }, 'ai-generate failed')
     try {
       await reportAiGenerateResult(processDocumentId, 'FAILED', [], message)
-    } catch (reportError) {
-      log.error({ processDocumentId, reportError }, 'Failed to report FAILED status')
+    } catch {
+      // backend unreachable — nothing else to do
     }
   }
 }

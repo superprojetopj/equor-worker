@@ -185,3 +185,17 @@ export async function createContraktorContract(
 
   return (await response.json()) as ContraktorCreateContractResponse
 }
+
+export async function deleteContraktorContract(contractId: number): Promise<void> {
+  const url = `${baseUrl()}/contracts/${contractId}`
+
+  const response = await fetchWithRetry(url, {
+    method: 'DELETE',
+    headers: authHeader(),
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Contraktor DELETE /contracts/${contractId} failed: ${response.status} - ${body}`)
+  }
+}

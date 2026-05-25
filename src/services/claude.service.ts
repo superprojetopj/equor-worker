@@ -1,22 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { createRequire } from 'module'
-const mammoth = createRequire(import.meta.url)('mammoth') as typeof import('mammoth')
 import { getEnv } from '../config/env.js'
-import type { AIRequest, ContextFile } from '../types/ai.types.js'
-import { systemPrompt } from '../prompts/system.prompt.js'
-import { fillPlaceholdersPrompt } from '../prompts/fill-placeholders.prompt.js'
+import type { AIContentPart, AIProviderRequest } from '../types/ai.types.js'
 
 type Block = Anthropic.Messages.ContentBlockParam
 
-const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-
-const TEXT_MEDIA_TYPES = new Set([
-  'text/plain',
-  'text/html',
-  'text/csv',
-  'text/xml',
-  'application/json',
-  'application/xml',
+const IMAGE_MEDIA_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
 ])
 
 let _client: Anthropic | null = null
@@ -28,66 +20,52 @@ function getClient(): Anthropic {
   return _client
 }
 
-async function fileToBlock(file: ContextFile): Promise<Block> {
-  if (file.mediaType === 'application/pdf') {
+function partToBlock(part: AIContentPart): Block {
+  if ('text' in part) {
+    return { type: 'text', text: part.text }
+  }
+
+  const { mime_type, data } = part.inline_data
+
+  if (mime_type === 'application/pdf') {
     return {
       type: 'document',
       source: {
         type: 'base64',
         media_type: 'application/pdf',
-        data: file.base64Data,
+        data,
       },
     }
   }
 
-  if (TEXT_MEDIA_TYPES.has(file.mediaType) || file.mediaType.startsWith('text/')) {
-    const text = Buffer.from(file.base64Data, 'base64').toString('utf-8')
-    return { type: 'text', text }
+  if (IMAGE_MEDIA_TYPES.has(mime_type)) {
+    return {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: mime_type as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+        data,
+      },
+    }
   }
 
-  if (file.mediaType === DOCX_MEDIA_TYPE) {
-    const buffer = Buffer.from(file.base64Data, 'base64')
-    const { value: text } = await mammoth.extractRawText({ buffer })
-    const label = file.fileName ?? 'documento.docx'
-    return { type: 'text', text: `[${label}]\n${text}` }
-  }
-
-  const label = file.fileName ?? file.mediaType
   return {
     type: 'text',
-    text: `[Arquivo de contexto: ${label} — formato não suportado]`,
+    text: `[Arquivo de contexto: ${mime_type} — formato não suportado pelo Claude]`,
   }
 }
 
-async function buildUserContent(req: AIRequest): Promise<Block[]> {
-  const fileBlocks = await Promise.all(req.contextFiles.map(fileToBlock))
-
-  const blocks: Block[] = [...fileBlocks]
-
-  if (req.metadata) {
-    blocks.push({
-      type: 'text',
-      text: `METADADOS:\n${JSON.stringify(req.metadata, null, 2)}`,
-    })
-  }
-
-  blocks.push({
-    type: 'text',
-    text: req.instruction,
-  })
-
-  return blocks
-}
-
-export async function callClaude(req: AIRequest): Promise<string> {
+export async function callClaude(req: AIProviderRequest): Promise<string> {
+  const { content, systemInstruction, generationConfig = { maxOutputTokens: 16000 } } = req
+  const maxTokens = (generationConfig.maxOutputTokens as number | undefined) ?? 16000
   const abort = AbortSignal.timeout(600_000)
 
   const response = await getClient().messages.create(
     {
       model: getEnv().CLAUDE_MODEL,
-      max_tokens: 16000,
-      system: `${systemPrompt}\n\n---\n\n${fillPlaceholdersPrompt}`,
-      messages: [{ role: 'user', content: await buildUserContent(req) }],
+      max_tokens: maxTokens,
+      ...(systemInstruction && { system: systemInstruction }),
+      messages: [{ role: 'user', content: content.map(partToBlock) }],
     },
     { signal: abort }
   )

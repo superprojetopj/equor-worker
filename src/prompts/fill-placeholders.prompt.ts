@@ -67,8 +67,26 @@ Regras obrigatórias:
         </tbody>
         </table>
         BLOCO DE ASSINATURAS (quando solicitado):
+        Consulte os metadados (contratantes/contratadas → socios). Cada sócio possui atributos booleanos que definem seu papel:
+        - is_signatory: true → signatário do contrato (parte contratante/contratada)
+        - is_witness: true → testemunha
+        - is_consultant: true → consultor
+        - is_reviewer: true → revisor
+
+        REGRAS DE INCLUSÃO:
+        1. Inclua APENAS sócios cujo atributo correspondente ao tipo de bloco solicitado seja true
+        2. Um sócio pode ter mais de um atributo true (ex: is_signatory e is_reviewer) — gere um bloco para cada papel quando a instrução pedir assinaturas completas
+        3. Use o rótulo abaixo da linha de assinatura conforme o papel:
+           - is_signatory → "Representante Legal" ou o valor de role/profissao do sócio, se disponível
+           - is_witness → "Testemunha"
+           - is_consultant → "Consultor" ou profissao do sócio, se disponível
+           - is_reviewer → "Revisor"
+        4. Priorize sempre os metadados estruturados sobre informações genéricas dos documentos de contexto
+
+        EXEMPLO (sócio com is_signatory: true, is_reviewer: true, is_witness: false, is_consultant: false):
         <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.5;"><strong>EMPRESA ABC LTDA</strong></p>
         <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.5;">CNPJ 12.345.678/0001-99</p>
+        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.5;">João da Silva</p>
         <p style="border-bottom: 1px solid #000000; width: 200px; font-family: Arial, sans-serif; font-size: 12pt; color: #000000; line-height: 1.5;"> </p>
         <p style="font-family: Arial, sans-serif; font-size: 10pt; color: #000000; text-align: left; line-height: 1.5;">Representante Legal</p>
 
