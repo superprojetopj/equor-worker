@@ -7,7 +7,6 @@ import {
   uploadFileToContraktor,
   addPartyToContraktor,
   createContraktorContract,
-  attachFileToContract,
   addParticipantToContract,
   dispatchForSignature,
   getShareLink,
@@ -22,14 +21,15 @@ async function runSignTask(payload: SignTaskPayload): Promise<void> {
   try {
     const { document, signatures } = await fetchSignDocumentData(processDocumentId)
 
-    const pdfBuffer = await generatePdfFromHtml(document.title)
+    const pdfBuffer = await generatePdfFromHtml(document.html_content)
 
+    const fileName = `${crypto.randomUUID()}.pdf`
     const [gcsPath, uploadedFile, parties] = await Promise.all([
       uploadToGCS(
-        `documents/processes/${processDocumentId}/${document.process_number}.pdf`,
+        `documents/processes/${processDocumentId}/${fileName}`,
         pdfBuffer
       ),
-      uploadFileToContraktor(pdfBuffer, `${document.process_number}.pdf`),
+      uploadFileToContraktor(pdfBuffer, fileName),
       Promise.all(
         signatures.map((s) =>
           addPartyToContraktor({
@@ -52,27 +52,23 @@ async function runSignTask(payload: SignTaskPayload): Promise<void> {
       },
     })
 
+    const contractId = contraktorContract.data.id
     log.info(
-      { processDocumentId, contraktorContractId: contraktorContract.data.id },
+      { processDocumentId, contraktorContractId: contractId },
       'Contraktor contract created'
     )
 
-    const contractId = contraktorContract.data.id
-
-    await Promise.all([
-      attachFileToContract(contractId, uploadedFile.data.id),
-      Promise.all(
-        parties.map((party) =>
-          addParticipantToContract(contractId, {
-            sharing: {
-              qualification: 'Contratado',
-              party_id: party.data.id,
-              notification_type: 'email',
-            },
-          })
-        )
-      ),
-    ])
+    await Promise.all(
+      signatures.map((signature, i) =>
+        addParticipantToContract(contractId, {
+          sharing: {
+            qualification: signature.party_type,
+            party_id: parties[i].data.id,
+            notification_type: 'email',
+          },
+        })
+      )
+    )
 
     const proof = await dispatchForSignature({
       proof: {
@@ -99,21 +95,23 @@ async function runSignTask(payload: SignTaskPayload): Promise<void> {
     const signatories = proof.data.subjects.map((subject, i) => ({
       name: subject.name,
       email: subject.email,
-      share_link: shareLinks[i].data.url,
+      share_link: shareLinks[i].data.sharelink,
     }))
 
-    await reportSignTaskResult(processDocumentId, 'COMPLETED', {
+    await reportSignTaskResult(processDocumentId, 'GENERATED', {
       contraktorContractId: String(contractId),
       gcsPath,
       signatories,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    log.error({ processDocumentId, error: message }, 'sign-task-data failed')
+    log.error({ processDocumentId, error: message }, 'sign-task failed')
     try {
       await reportSignTaskResult(processDocumentId, 'FAILED', { errorMessage: message })
     } catch (reportError) {
-      log.error({ processDocumentId, reportError }, 'Failed to report FAILED status')
+      const reportMessage =
+        reportError instanceof Error ? reportError.message : String(reportError)
+      log.error({ processDocumentId, reportError: reportMessage }, 'Failed to report FAILED status')
     }
   }
 }

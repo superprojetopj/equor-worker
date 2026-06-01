@@ -88,12 +88,14 @@ const SignatureSchema = z.object({
   name: z.string(),
   cpf: z.string(),
   email: z.string(),
+  party_type: z.enum(['Contratante', 'Contratada']),
 })
 
 const SignDocumentSchema = z.object({
   id: z.number().int(),
   title: z.string(),
   process_number: z.string(),
+  html_content: z.string(),
 })
 
 export const BackendSignDocumentResponseSchema = z.object({

@@ -62,6 +62,10 @@ export interface ContraktorAddPartyResponse {
   data: ContraktorPartyData
 }
 
+export interface ContraktorListPartiesResponse {
+  data: ContraktorPartyData[]
+}
+
 export interface ContraktorCreateContractPayload {
   contract: {
     title: string
@@ -182,6 +186,6 @@ export interface ContraktorCreateProofResponse {
 
 export interface ContraktorShareLinkResponse {
   data: {
-    url: string
+    sharelink: string
   }
 }

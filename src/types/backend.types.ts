@@ -86,7 +86,7 @@ export interface BackendProcessDocumentResponse {
 
 // ── Report back to backend ──
 
-export type DocumentStatus = 'PROCESSING' | 'COMPLETED' | 'FAILED'
+export type DocumentStatus = 'PROCESSING' | 'GENERATED' | 'FAILED'
 
 export interface PromptResult {
   prompt_id: string
@@ -101,16 +101,20 @@ export interface DocumentResultPayload {
 
 // ── Sign Task Data ──
 
+export type SignaturePartyType = 'Contratante' | 'Contratada'
+
 export interface Signature {
   name: string
   cpf: string
   email: string
+  party_type: SignaturePartyType
 }
 
 export interface SignDocument {
   id: number
   title: string
   process_number: string
+  html_content: string
 }
 
 export interface BackendSignDocumentResponse {

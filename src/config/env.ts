@@ -34,7 +34,12 @@ const EnvSchema = z.object({
 
   // Contraktor
   CONTRAKTOR_API_URL: z.url(),
-  CONTRAKTOR_API_TOKEN: z.string().min(1),
+  CONTRAKTOR_API_TOKEN: z
+    .string()
+    .min(1)
+    .transform((s) => s.trim()),
+
+  PUPPETEER_EXECUTABLE_PATH: z.string().min(1).optional(),
 })
 
 const EnvSchemaFinal = EnvSchema.superRefine((env, ctx) => {

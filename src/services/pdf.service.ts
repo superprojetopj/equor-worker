@@ -1,13 +1,16 @@
 import puppeteer, { type Browser } from 'puppeteer'
+import { getEnv } from '../config/env.js'
 import { wrapTinyMceHtml } from '../lib/html-wrap.js'
 
 let browserInstance: Browser | null = null
 
 async function getBrowser(): Promise<Browser> {
   if (browserInstance && browserInstance.connected) return browserInstance
+  const { PUPPETEER_EXECUTABLE_PATH } = getEnv()
   browserInstance = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    ...(PUPPETEER_EXECUTABLE_PATH && { executablePath: PUPPETEER_EXECUTABLE_PATH }),
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   })
   browserInstance.once('disconnected', () => {
     browserInstance = null
@@ -23,7 +26,7 @@ export async function generatePdfFromHtml(html: string): Promise<Buffer> {
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      margin: { top: '2cm', right: '2cm', bottom: '2cm', left: '3cm' },
     })
     return Buffer.from(pdf)
   } finally {

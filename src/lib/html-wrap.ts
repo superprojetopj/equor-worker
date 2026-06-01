@@ -14,7 +14,7 @@ export function wrapTinyMceHtml(bodyHtml: string): string {
       color: #000;
       background: #fff;
       margin: 0;
-      padding: 40px 50px;
+      padding: 0;
     }
 
     h1, h2, h3, h4, h5, h6 {

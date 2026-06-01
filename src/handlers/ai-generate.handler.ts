@@ -53,7 +53,7 @@ async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
     const { prompts, context_files } = document
 
     if (prompts.length === 0) {
-      await reportAiGenerateResult(processDocumentId, 'COMPLETED', [])
+      await reportAiGenerateResult(processDocumentId, 'GENERATED', [])
       return
     }
 
@@ -69,7 +69,7 @@ async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
       results.push({ prompt_id: prompt.id, result_html })
     }
 
-    await reportAiGenerateResult(processDocumentId, 'COMPLETED', results)
+    await reportAiGenerateResult(processDocumentId, 'GENERATED', results)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     try {

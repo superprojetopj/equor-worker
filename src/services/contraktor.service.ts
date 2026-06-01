@@ -3,6 +3,7 @@ import { fetchWithRetry } from '../lib/http.js'
 import type {
   ContraktorAddPartyPayload,
   ContraktorAddPartyResponse,
+  ContraktorListPartiesResponse,
   ContraktorAddParticipantPayload,
   ContraktorAddParticipantResponse,
   ContraktorAttachFileResponse,
@@ -23,7 +24,15 @@ function authHeader(): Record<string, string> {
 }
 
 function jsonHeaders(): Record<string, string> {
-  return { ...authHeader(), 'Content-Type': 'application/json' }
+  return {
+    ...authHeader(),
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  }
+}
+
+function apiHeaders(): Record<string, string> {
+  return { ...authHeader(), Accept: 'application/json' }
 }
 
 export async function uploadFileToContraktor(
@@ -37,7 +46,7 @@ export async function uploadFileToContraktor(
 
   const response = await fetchWithRetry(url, {
     method: 'POST',
-    headers: authHeader(),
+    headers: apiHeaders(),
     body: form,
   })
 
@@ -49,9 +58,56 @@ export async function uploadFileToContraktor(
   return (await response.json()) as ContraktorUploadFileResponse
 }
 
+async function listContraktorParties(search: string): Promise<ContraktorListPartiesResponse> {
+  const url = `${baseUrl()}/parties?search=${encodeURIComponent(search)}`
+
+  const response = await fetchWithRetry(url, { method: 'GET', headers: jsonHeaders() })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Contraktor GET /parties failed: ${response.status} - ${body}`)
+  }
+
+  return (await response.json()) as ContraktorListPartiesResponse
+}
+
+async function updateContraktorParty(
+  partyId: number,
+  payload: ContraktorAddPartyPayload
+): Promise<ContraktorAddPartyResponse> {
+  const url = `${baseUrl()}/parties/${partyId}`
+
+  const response = await fetchWithRetry(url, {
+    method: 'PATCH',
+    headers: jsonHeaders(),
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Contraktor PATCH /parties/${partyId} failed: ${response.status} - ${body}`)
+  }
+
+  return (await response.json()) as ContraktorAddPartyResponse
+}
+
 export async function addPartyToContraktor(
   payload: ContraktorAddPartyPayload
 ): Promise<ContraktorAddPartyResponse> {
+  const email = payload.party.person_type === 'pf' ? payload.party.email : undefined
+
+  if (email) {
+    const { data: parties } = await listContraktorParties(email)
+    const existing = parties.find((p) => p.email === email)
+
+    if (existing) {
+      if (existing.name === payload.party.name) {
+        return { data: existing }
+      }
+      return updateContraktorParty(existing.id, payload)
+    }
+  }
+
   const url = `${baseUrl()}/parties`
 
   const response = await fetchWithRetry(url, {
@@ -135,7 +191,7 @@ export async function getShareLink(
 
   const response = await fetchWithRetry(url, {
     method: 'GET',
-    headers: authHeader(),
+    headers: apiHeaders(),
   })
 
   if (!response.ok) {
@@ -191,7 +247,7 @@ export async function deleteContraktorContract(contractId: number): Promise<void
 
   const response = await fetchWithRetry(url, {
     method: 'DELETE',
-    headers: authHeader(),
+    headers: apiHeaders(),
   })
 
   if (!response.ok) {
