@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getEnv } from '../config/env.js'
+import { stripMarkdownFences } from '../lib/ai-response.js'
 import type { AIContentPart, AIProviderRequest } from '../types/ai.types.js'
 
 type Block = Anthropic.Messages.ContentBlockParam
@@ -75,5 +76,6 @@ export async function callClaude(req: AIProviderRequest): Promise<string> {
     throw new Error('Claude did not return text content')
   }
 
-  return textBlock.text
+  return stripMarkdownFences(textBlock.text)
 }
+

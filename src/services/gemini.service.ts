@@ -1,5 +1,6 @@
 import { getEnv } from '../config/env.js'
 import { fetchWithRetry } from '../lib/http.js'
+import { stripMarkdownFences } from '../lib/ai-response.js'
 import type { AIProviderRequest } from '../types/ai.types.js'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com'
@@ -54,5 +55,5 @@ export async function callGemini(req: AIProviderRequest): Promise<string> {
     throw new Error(`Gemini returned no text content: ${JSON.stringify(json)}`)
   }
 
-  return text
+  return stripMarkdownFences(text)
 }
