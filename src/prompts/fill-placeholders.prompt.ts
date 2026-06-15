@@ -96,6 +96,38 @@ REGRAS DE INCLUSÃO:
         <p style="border-bottom: 1px solid #000000; width: 200px; font-family: Arial, sans-serif; font-size: 12pt; color: #000000; line-height: 1.5;"> </p>
         <p style="font-family: Arial, sans-serif; font-size: 10pt; color: #000000; text-align: left; line-height: 1.5;">Representante Legal</p>
 
+## VARIÁVEIS NÃO PREENCHIDAS (DESTAQUE AMARELO) — REGRAS CRÍTICAS
+
+O destaque amarelo (background-color: #FFF3CD) serve EXCLUSIVAMENTE para marcar variáveis que NÃO foram preenchidas com dados reais — ou seja, quando você NÃO encontrou a informação nos documentos de contexto/metadados e precisou manter o placeholder \`{{NOME_DA_VARIAVEL}}\`.
+
+REGRA 1 — Quando usar o destaque amarelo:
+- USE somente quando o valor real do dado NÃO foi encontrado e o placeholder \`{{NOME_DA_VARIAVEL}}\` permanece no texto.
+- NÃO USE quando o dado foi encontrado e substituído por um valor real (nome, CPF, CNPJ, endereço, data, valor, etc.). Dados reais entram diretamente no texto, SEM \`<span>\` e SEM destaque.
+
+REGRA 2 — Formato OBRIGATÓRIO do \`<span>\` para placeholder não preenchido:
+<span data-var="{{NOME_DA_VARIAVEL}}" style="background-color: #FFF3CD; border-radius: 3px; padding: 1px 4px;">{{NOME_DA_VARIAVEL}}</span>
+
+REGRA 3 — Fechamento da tag (CRÍTICA, FONTE DE ERRO COMUM):
+- A tag \`</span>\` DEVE fechar IMEDIATAMENTE após o \`}}\` do placeholder.
+- O conteúdo entre \`<span>\` e \`</span>\` é EXATAMENTE \`{{NOME_DA_VARIAVEL}}\` — nada antes, nada depois.
+- NUNCA deixe o \`<span>\` aberto envolvendo texto subsequente (vírgulas, palavras, parágrafos, outros dados).
+- NUNCA inclua múltiplos placeholders dentro do mesmo \`<span>\`. Cada placeholder tem seu próprio \`<span>\` independente.
+
+EXEMPLO CORRETO (RG não encontrado, CPF encontrado):
+<p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.5;">... portador da cédula de identidade RG nº <span data-var="{{RG_GESIVALDO}}" style="background-color: #FFF3CD; border-radius: 3px; padding: 1px 4px;">{{RG_GESIVALDO}}</span> e CPF nº 036.463.139-27, residente à Rua Desembargador Westphalen, 123 ...</p>
+
+EXEMPLO ERRADO — span não fechado após o placeholder (NÃO FAÇA ISSO):
+<p ...>... RG nº <span data-var="{{RG_GESIVALDO}}" style="background-color: #FFF3CD; ...">{{RG_GESIVALDO}} e CPF nº 036.463.139-27, residente à Rua ...</span></p>
+↑ O \`</span>\` deveria ter fechado logo após \`{{RG_GESIVALDO}}\`. O texto após o placeholder ficou pintado de amarelo indevidamente.
+
+EXEMPLO ERRADO — dado real com destaque amarelo (NÃO FAÇA ISSO):
+<p ...>... inscrita no CNPJ sob o número <span data-var="{{CNPJ}}" style="background-color: #FFF3CD; ...">10.999.476/0001-31</span> ...</p>
+↑ O CNPJ foi encontrado e preenchido. Escreva o valor direto, sem \`<span>\` e sem amarelo.
+
+EXEMPLO ERRADO — dois placeholders no mesmo span (NÃO FAÇA ISSO):
+<span data-var="{{RG}}" style="...">{{RG}} e CPF nº {{CPF}}</span>
+↑ Cada placeholder precisa de seu próprio \`<span>\` independente, fechado logo após seu próprio \`}}\`.
+
 - Use português brasileiro formal, adequado para documentos jurídicos
 - Sem explicações, sem comentários, sem markdown — apenas o conteúdo final
 - NÃO envolva a resposta em blocos de código markdown — devolva só o HTML puro, sem prefixo nem sufixo
