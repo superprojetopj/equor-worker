@@ -1,7 +1,10 @@
+import pino from 'pino'
 import { getEnv } from '../config/env.js'
 import { fetchWithRetry } from '../lib/http.js'
 import { stripMarkdownFences } from '../lib/ai-response.js'
-import type { AIProviderRequest } from '../types/ai.types.js'
+import type { AIProviderRequest, AIResult, AIUsage } from '../types/ai.types.js'
+
+const log = pino({ name: 'gemini' })
 
 const BASE_URL = 'https://generativelanguage.googleapis.com'
 
@@ -18,7 +21,7 @@ export interface GeminiFileRef {
   mimeType: string
 }
 
-export async function callGemini(req: AIProviderRequest): Promise<string> {
+export async function callGemini(req: AIProviderRequest): Promise<AIResult> {
   const { content, systemInstruction, generationConfig = { maxOutputTokens: 16000 } } = req
   const model = getEnv().GEMINI_MODEL
   const url = `${BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey()}`
@@ -48,12 +51,29 @@ export async function callGemini(req: AIProviderRequest): Promise<string> {
 
   const json = JSON.parse(responseText) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    usageMetadata?: {
+      promptTokenCount?: number
+      candidatesTokenCount?: number
+      totalTokenCount?: number
+    }
   }
+
+  const usage: AIUsage = {
+    provider: 'gemini',
+    model,
+    inputTokens: json.usageMetadata?.promptTokenCount ?? 0,
+    outputTokens: json.usageMetadata?.candidatesTokenCount ?? 0,
+    cacheWriteTokens: 0,
+    cacheReadTokens: 0,
+    // Sem tabela de preços Gemini — custo fica a cargo de quem consome o dado
+    estimatedCostUsd: null,
+  }
+  log.info(usage, 'Gemini generation usage')
 
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text
   if (!text) {
     throw new Error(`Gemini returned no text content: ${JSON.stringify(json)}`)
   }
 
-  return stripMarkdownFences(text)
+  return { text: stripMarkdownFences(text), usage }
 }

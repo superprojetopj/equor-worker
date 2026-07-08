@@ -67,13 +67,13 @@ const ContextFileRefSchema = z.object({
 const PromptItemSchema = z.object({
   id: z.string(),
   prompt: z.string(),
+  length: z.string().nullish(),
 })
 
 const ProcessDocumentDataSchema = z.object({
   process_document_id: z.number().int(),
-  html_template: z.string().optional(),
+  skeleton: z.string().nullish(),
   prompts: z.array(PromptItemSchema).default([]),
-  custom_prompt: z.string().nullable().optional(),
   context_files: z.array(ContextFileRefSchema).default([]),
 })
 

@@ -69,13 +69,13 @@ export type { ContextFileRef }
 export interface PromptItem {
   id: string
   prompt: string
+  length?: string | null
 }
 
 export interface ProcessDocumentData {
   process_document_id: number
-  html_template?: string
+  skeleton?: string | null
   prompts: PromptItem[]
-  custom_prompt?: string | null
   context_files: ContextFileRef[]
 }
 
@@ -93,10 +93,22 @@ export interface PromptResult {
   result_html: string
 }
 
+export interface AiUsageReport {
+  provider: string
+  model: string
+  ai_calls: number
+  input_tokens: number
+  output_tokens: number
+  cache_write_tokens: number
+  cache_read_tokens: number
+  estimated_cost_usd: number | null
+}
+
 export interface DocumentResultPayload {
   status: DocumentStatus
   prompts: PromptResult[]
   error_message: string | null
+  usage: AiUsageReport | null
 }
 
 // ── Sign Task Data ──
