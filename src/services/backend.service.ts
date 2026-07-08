@@ -5,6 +5,7 @@ import {
   BackendSignDocumentResponseSchema,
 } from '../schemas/backend.schema.js'
 import type {
+  AiUsageReport,
   DocumentStatus,
   DocumentResultPayload,
   PromptResult,
@@ -105,7 +106,8 @@ export async function reportAiGenerateResult(
   processDocumentId: number,
   status: DocumentStatus,
   prompts: PromptResult[] = [],
-  errorMessage?: string
+  errorMessage?: string,
+  usage?: AiUsageReport | null
 ): Promise<void> {
   const path = getEnv().BACKEND_AI_GENERATE_RESULT_PATH.replace(
     '{processDocumentId}',
@@ -117,6 +119,7 @@ export async function reportAiGenerateResult(
     status,
     prompts,
     error_message: errorMessage ?? null,
+    usage: usage ?? null,
   }
 
   const response = await fetchWithRetry(url, {

@@ -1,6 +1,6 @@
 # AGENTS.md — Equor Worker
 
-You are working on **Equor Worker**, a Node.js/TypeScript microservice that processes Brazilian legal documents using AI (Claude). It receives tasks from a PHP (Yii2) backend, fetches HTML templates, fills placeholders with Claude's responses, and reports results back.
+You are working on **Equor Worker**, a Node.js/TypeScript microservice that processes Brazilian legal documents using AI (Claude or Gemini). It receives tasks from a PHP (Yii2) backend, generates document sections with AI, sends documents for digital signature via Contraktor, and reports results back.
 
 ---
 
@@ -12,8 +12,10 @@ You are working on **Equor Worker**, a Node.js/TypeScript microservice that proc
 | Language | TypeScript (strict, target ES2022, moduleResolution NodeNext) |
 | HTTP Framework | Fastify 5 |
 | Validation | Zod 4 |
-| AI | Anthropic SDK (`@anthropic-ai/sdk`) |
+| AI | Anthropic SDK (`@anthropic-ai/sdk`) — default; Gemini via REST as alternative |
 | Storage | Google Cloud Storage (`@google-cloud/storage`) |
+| PDF | Puppeteer (`generatePdfFromHtml`) |
+| Signature | Contraktor API |
 | Logging | Pino (stdout + file) |
 
 ---
@@ -23,56 +25,82 @@ You are working on **Equor Worker**, a Node.js/TypeScript microservice that proc
 ```
 src/
 ├── config/
-│   └── env.ts              # Zod env schema. Lazy singleton via getEnv()
+│   └── env.ts                        # Zod env schema. Lazy singleton via getEnv()
 ├── handlers/
-│   └── process.handler.ts  # Main orchestration: fetchProcessData → resolveDocument → Claude
+│   ├── ai-generate.handler.ts        # AI generation: compose (skeleton) + per-prompt fallback
+│   ├── signature.handler.ts          # PDF → GCS → Contraktor signature flow
+│   └── delete-contraktor.handler.ts  # Delete contract in Contraktor
 ├── lib/
-│   ├── html-parser.ts      # extractPromptPlaceholders / replacePlaceholder
-│   ├── logger.ts           # Pino multistream (stdout + LOG_FILE)
-│   └── shutdown.ts         # Graceful shutdown: trackTask / waitForDrain / isShuttingDown
+│   ├── ai-response.ts                # stripMarkdownFences / parsePromptResults
+│   ├── html-wrap.ts                  # wrapTinyMceHtml (full HTML doc for PDF rendering)
+│   ├── http.ts                       # fetchWithRetry
+│   ├── logger.ts                     # Pino multistream (stdout + LOG_FILE)
+│   └── shutdown.ts                   # dispatch / trackTask / waitForDrain / shutdownGuard
 ├── middleware/
-│   └── auth.middleware.ts  # verifyAuth: dev=x-worker-secret, prod=Bearer (TODO: OIDC JWT)
+│   └── auth.middleware.ts            # verifyAuth (x-worker-key secret; TODO: OIDC JWT em prod)
+├── prompts/
+│   ├── system.prompt.ts              # Persona: consultor jurídico brasileiro (Equor Legal Advisor)
+│   ├── html-format.prompt.ts         # Shared: TinyMCE HTML rules, assinaturas, variáveis amarelas, security policy
+│   ├── fill-placeholders.prompt.ts   # Per-prompt output contract (HTML puro) — fallback path
+│   ├── compose-document.prompt.ts    # Compose output contract (<prompt_result> blocks + skeleton rules)
+│   └── ai-generate.prompt.ts         # Joins system + task prompts into system instructions
 ├── routes/
-│   └── task.route.ts       # POST /task (202 async), GET /health
-├── schemas/
-│   ├── backend.schema.ts   # Zod: BackendProcessResponse validation
-│   └── task.schema.ts      # Zod: { taskId: UUID, processId: number }
+│   ├── ai-generate.route.ts          # POST /ai-generate (202 async)
+│   ├── signature.route.ts            # POST /signature (202 async)
+│   └── delete-contraktor.route.ts    # POST /delete-contraktor
+├── schemas/                          # Zod schemas (payloads + backend responses)
 ├── services/
-│   ├── backend.service.ts  # fetchProcessData / reportDocumentResult
-│   ├── claude.service.ts   # callClaude (Anthropic messages API)
-│   └── storage.service.ts  # downloadFromGCS → in-memory base64
-├── types/
-│   ├── index.ts            # Barrel exports
-│   ├── backend.types.ts    # BackendProcessResponse, ProcessDocumentData, ContextFileRef, DocumentStatus
-│   ├── claude.types.ts     # ClaudeRequest, ContextFile
-│   └── html.types.ts       # PromptPlaceholder
-├── index.ts                # Entry point: buildServer() + listen() + graceful shutdown
-└── server.ts               # buildServer(): Fastify + sensible + taskRoutes
+│   ├── backend.service.ts            # fetchProcessDocumentData / reportAiGenerateResult / sign endpoints
+│   ├── claude.service.ts             # callClaude (streaming + prompt caching)
+│   ├── gemini.service.ts             # callGemini (REST generateContent)
+│   ├── context.service.ts            # contextFileToPart (PDF/image inline, docx via mammoth, text sandboxed)
+│   ├── contraktor.service.ts         # Contraktor API client
+│   ├── pdf.service.ts                # generatePdfFromHtml (Puppeteer)
+│   └── storage.service.ts            # GCS download (base64 in-memory) / upload
+├── types/                            # backend.types, ai.types, storage.types, contraktor.types
+├── index.ts                          # Entry point: buildServer() + listen() + graceful shutdown
+└── server.ts                         # buildServer(): Fastify + cors + sensible + routes
 ```
 
 ---
 
-## End-to-End Data Flow
+## AI Generation Flow (ai-generate)
 
 ```
-1. PHP Backend → POST /task { taskId, processId }
-2. verifyAuth (preHandler)
-3. Fastify validates body with Zod (task.schema.ts)
-4. Returns 202 Accepted immediately
-5. Async (fire-and-forget):
-   fetchProcessData(processId)
-     → GET /api/process/{id}/task-data (header: x-worker-secret)
-     → returns { process: { id, process_number, documents[] }, metadata? }
-   Promise.allSettled(documents.map(resolveDocument)):
-     → reportDocumentResult(id, 'processing')
-     → downloadFromGCS(context_files[]) → base64[]
-     → extractPromptPlaceholders(html_template) → PromptPlaceholder[]
-     → for each placeholder (sequentially):
-         callClaude({ instruction, htmlContext, contextFiles, metadata })
-         replacePlaceholder(html, placeholder, result)
-     → reportDocumentResult(id, 'completed', html)
-     → (on error) reportDocumentResult(id, 'failed', undefined, errorMessage)
+1. PHP Backend → POST /ai-generate { processDocumentId }
+2. verifyAuth (preHandler) + Zod validation → 202 Accepted
+3. Async (dispatch/trackTask):
+   fetchProcessDocumentData(processDocumentId)
+     → GET {BACKEND_AI_GENERATE_PATH} (header: X-Worker-Key)
+     → { document: { process_document_id, skeleton?, prompts[], context_files[] }, metadata }
+   downloadFromGCS(context_files[]) → base64 → contextFileToPart()
+   IF skeleton present:
+     → ONE compose call: files + <metadata> + <document_skeleton> + <prompts> (all prompts)
+     → response parsed by parsePromptResults(): <prompt_result id="{PROMPT_x}">html</prompt_result>
+     → prompts missing from the response fall back to the per-prompt path
+   Per-prompt path (fallback / no skeleton):
+     → for each pending prompt: callAI(files + metadata + skeleton (if any) + <instruction>)
+     → instruction includes the prompt's `length` and the [[marker]] context when available
+   reportAiGenerateResult(id, 'GENERATED', [{ prompt_id, result_html }])
+   (on error) reportAiGenerateResult(id, 'FAILED', [], message)
 ```
+
+The backend replaces each `prompt_id` result into the template spans server-side
+(`DocumentTemplate::replacePrompts`) — the worker never returns the full document HTML.
+
+### Prompt/skeleton contract (from the backend)
+
+- Templates are TinyMCE HTML with `<span data-variable="{PROMPT_x}" data-prompt="..." data-length="...">` markers.
+- The backend extracts `prompts: [{ id, prompt, length? }]` and builds `skeleton`: the full
+  document as plain text with `[[{PROMPT_x}]]` markers where each generated section goes.
+- `length` (optional, from `data-length`) becomes the `tamanho` attribute in the `<prompt>` XML tag —
+  the compose prompt treats it as mandatory sizing guidance.
+- **Full-document templates**: if the template has exactly ONE prompt and the skeleton minus its
+  `[[marker]]` has < 200 chars of fixed text (`isFullDocumentTemplate`), that prompt IS the document.
+  The instruction gets `FULL_DOCUMENT_NOTE`, which lifts the minimum-size rules (compose prompt
+  rule 6 / system prompt full-document format) — otherwise a single-prompt template would be
+  squeezed into "um parágrafo". Multiple prompts are ALWAYS treated as parts, even with no fixed
+  text — each prompt is a section and the set composes the document.
 
 ---
 
@@ -82,25 +110,26 @@ src/
 
 - **Lazy singletons via closures**: external clients (`Anthropic`, `Bucket`, `Env`) are instantiated once with the pattern `let _x = null; function getX() { if (!_x) _x = new X(); return _x }`. Never break this.
 - **Services are functions, not classes**: no service uses a class. Keep it that way.
-- **Async fire-and-forget in route handler**: the route returns 202 and kicks off processing without `await`. Processing errors are caught internally and reported to the backend — they must never propagate to Fastify. All fire-and-forget tasks must be wrapped with `trackTask()` from `src/lib/shutdown.ts`.
-- **`Promise.allSettled` for documents**: documents are processed in parallel. A failure in one must not cancel the others.
-- **All external calls must have timeouts**: backend fetch = 30s (`AbortSignal.timeout`), Claude API = 10min (large PDFs + long responses), GCS download = 60s (`Promise.race`). Never add an external call without a timeout.
-- **Graceful shutdown**: SIGTERM/SIGINT trigger `beginShutdown()` → `app.close()` → `waitForDrain(25s)` → exit. New requests return 503 during drain. The `/health` endpoint returns `"draining"` status.
+- **Async fire-and-forget in route handlers**: routes return 202 and kick off processing via `dispatch()` from `src/lib/shutdown.ts`. Processing errors are caught internally and reported to the backend — they must never propagate to Fastify.
+- **All external calls must have timeouts**: backend fetch via `fetchWithRetry`, AI calls = 10min (`AbortSignal.timeout`), GCS download = 60s. Never add an external call without a timeout.
+- **Graceful shutdown**: SIGTERM/SIGINT → `beginShutdown()` → `app.close()` → `waitForDrain(25s)` → exit. New requests get 503 via `shutdownGuard`.
 - **Backend responses must be Zod-validated**: never use `as` type assertions on external data. Validate with a Zod schema in `src/schemas/`.
-- **Error reporting must be fault-tolerant**: the catch block in `resolveDocument` wraps `reportDocumentResult('failed')` in its own try-catch to prevent cascading failures when the backend is unreachable.
-- **Imports with `.js` extension**: TypeScript with `moduleResolution: NodeNext` requires `.js` extensions on imports, even in `.ts` files.
+- **Error reporting must be fault-tolerant**: catch blocks wrap the `FAILED` report in their own try-catch.
+- **Imports with `.js` extension**: `moduleResolution: NodeNext` requires `.js` extensions on imports, even in `.ts` files.
 - **Always access env via `getEnv()`**: never use `process.env.X` directly.
+- **Provider-agnostic AI calls**: handlers call `callAI()` which routes to Claude or Gemini via `AI_PROVIDER`. Content is built as `AIContentPart[]` (`{text}` or `{inline_data}`), converted per-provider inside each service.
+- **Compose must degrade gracefully**: a failed or partial compose call falls back to per-prompt generation for the missing prompts — never fail the whole document because the single-call path broke.
 
 ### What NOT to do
 
 - Do not add classes where functions suffice.
 - Do not create temporary files for GCS — everything stays in memory as base64.
 - Do not `await` the processing inside the route handler — it violates the 202 async contract.
-- Do not use `any` — use the types in `src/types/`.
-- Do not instantiate external clients outside getter functions (prevents startup failures when env vars are missing).
-- Do not bypass the `src/types/index.ts` barrel — always import types from there.
+- Do not use `any` — use the types in `src/types/` (barrel: `src/types/index.ts`).
+- Do not instantiate external clients outside getter functions.
 - Do not use `as` type assertions on external API responses — always validate with Zod.
-- Do not add external calls without a timeout — a hung connection blocks the worker forever.
+- Do not add external calls without a timeout.
+- Do not put per-call (volatile) content before the cached prefix in Claude requests — see Claude Integration.
 
 ---
 
@@ -115,27 +144,22 @@ Defined in `src/config/env.ts` with Zod. All required unless a default is listed
 | `LOG_FILE` | string | logs/equor-worker.log | Log file path |
 | `LOG_LEVEL` | string | info | Pino log level |
 | `BACKEND_URL` | url | — | PHP backend base URL |
-| `BACKEND_DOCUMENT_PATH` | string | /api/process/{id}/task-data | Path template with `{id}` |
-| `WORKER_SECRET` | string | — | Shared secret with the backend |
+| `BACKEND_AI_GENERATE_PATH` | string | /worker/{processDocumentId}/ai-generate-task-data | Task data path |
+| `BACKEND_AI_GENERATE_RESULT_PATH` | string | /worker/{processDocumentId}/ai-generate-result | Result path |
+| `BACKEND_SIGN_TASK_DATA_PATH` | string | /worker/{processDocumentId}/sign-task-data | Sign data path |
+| `BACKEND_SIGN_TASK_RESULT_PATH` | string | /worker/{processDocumentId}/sign-result | Sign result path |
+| `WORKER_SECRET` | string | — | Shared secret with the backend (X-Worker-Key) |
 | `GCS_BUCKET_NAME` | string | — | GCS bucket name |
 | `GOOGLE_APPLICATION_CREDENTIALS` | string | — | Path to GCS credentials JSON |
-| `ANTHROPIC_API_KEY` | string | — | Anthropic API key |
-| `CLAUDE_MODEL` | string | claude-sonnet-4-6 | Claude model to use |
-
----
-
-## Placeholder System
-
-HTML templates arrive from the backend with markers in this format:
-
-```html
-{{PROMPT: Extract the full name of the contractor from the document}}
-```
-
-- `extractPromptPlaceholders(html)` → regex `/\{\{PROMPT:\s*([\s\S]*?)\}\}/g`
-- Returns an array of `{ instruction: string, original: string }`
-- Placeholders are resolved **sequentially** — each one sees the HTML already updated by the previous ones
-- `replacePlaceholder(html, placeholder, content)` → replaces `original` with Claude's result
+| `AI_PROVIDER` | enum | claude | `claude` or `gemini` |
+| `ANTHROPIC_API_KEY` | string | — | Required when AI_PROVIDER=claude |
+| `CLAUDE_MODEL` | string | claude-haiku-4-5-20251001 | Claude model to use |
+| `CLAUDE_TEMPERATURE` | number | 0.2 | 0–1. Silently skipped on models that reject sampling params (Opus 4.7+, Sonnet 5, Fable) |
+| `GEMINI_API_KEY` | string | — | Required when AI_PROVIDER=gemini |
+| `GEMINI_MODEL` | string | gemini-2.5-flash-lite | Gemini model to use |
+| `CONTRAKTOR_API_URL` | url | — | Contraktor API base URL |
+| `CONTRAKTOR_API_TOKEN` | string | — | Contraktor API token |
+| `PUPPETEER_EXECUTABLE_PATH` | string | — | Optional Chromium path for PDF generation |
 
 ---
 
@@ -143,14 +167,39 @@ HTML templates arrive from the backend with markers in this format:
 
 File: `src/services/claude.service.ts`
 
-- System prompt in Brazilian Portuguese: specialist in Brazilian legal documents
-- Message content sent (in order):
-  1. Context files (PDFs as `document` blocks, others decoded as plain text)
-  2. Structured `metadata` (JSON) if present
-  3. Current HTML of the document
-  4. Final instruction asking for ONLY the HTML/text content, no explanations
-- `max_tokens: 4096`
-- Returns only the first `text` block from the response
+- **Streaming**: uses `client.messages.stream(...).finalMessage()` — required for large `max_tokens`
+  (compose calls use 32000 output tokens) without hitting HTTP timeouts.
+- **Prompt caching**: two `cache_control: {type: "ephemeral"}` breakpoints —
+  the system instruction block, and the penultimate content block (context files + metadata + skeleton).
+  The last content block is always the per-call `<instruction>`, so sequential calls for the same
+  document (per-prompt fallback, retries) read the cached prefix instead of re-paying for the PDFs.
+  Keep this ordering: stable content first, volatile instruction last.
+- PDFs go as `document` blocks, images as `image` blocks, everything else as sandboxed text.
+- Default `max_tokens: 16000`; overridable via `generationConfig.maxOutputTokens`.
+- **Temperature**: `CLAUDE_TEMPERATURE` (default 0.2) is applied only when the model accepts it —
+  Opus 4.7+, Sonnet 5, and Fable reject `temperature`/`top_p`/`top_k` with 400, so the service
+  guards with a model-name regex (`SAMPLING_PARAMS_REMOVED`). Haiku 4.5 and Sonnet 4.6 accept it.
+- **Usage tracking**: `callClaude`/`callGemini` return `{ text, usage }` (`AIResult`). Usage is
+  logged per call and aggregated per run by the handler (`aggregateUsage`), then reported to the
+  backend in the result payload. Cost comes from the price table `MODEL_PRICES_PER_MTOK` —
+  `estimatedCostUsd` is `null` for unknown models (add a row when changing `CLAUDE_MODEL`) and
+  always `null` for Gemini (no price table).
+- Returns only the first `text` block, passed through `stripMarkdownFences`.
+
+## Prompts
+
+Files: `src/prompts/`
+
+- `system.prompt.ts` — persona/legal rules, shared by all generation paths.
+- `html-format.prompt.ts` — shared TinyMCE formatting rules, signature blocks, yellow-highlight
+  variable rules (`{{VARIAVEL}}` spans) and the content security policy. Imported by both output contracts.
+- `fill-placeholders.prompt.ts` — per-prompt path: output is pure HTML, nothing else.
+- `compose-document.prompt.ts` — compose path: output is one `<prompt_result id="...">` block per
+  prompt; explains how to use `<document_skeleton>` for sizing (fit the marker's surroundings, default
+  to the smallest content that satisfies the instruction, `tamanho` attribute is mandatory guidance,
+  never duplicate fixed text, keep cross-section coherence).
+
+When changing formatting rules, change `html-format.prompt.ts` — not the two output contracts.
 
 ---
 
@@ -158,21 +207,25 @@ File: `src/services/claude.service.ts`
 
 File: `src/services/backend.service.ts`
 
-- Auth header: `x-worker-secret` (same secret shared with backend)
-- `fetchProcessData(processId)`: GET returning `{ process, metadata? }` — validated with `BackendProcessResponseSchema`
-- `reportDocumentResult(id, status, html?, error?)`: POST with `{ status, result_html, error_message }`
-- Possible statuses: `'processing'` | `'completed'` | `'failed'`
-- Both calls have a 30s timeout via `AbortSignal.timeout()`
+- Auth header: `X-Worker-Key` (shared secret)
+- `fetchProcessDocumentData(id)`: GET → `{ document, metadata }` — validated with `BackendProcessDocumentResponseSchema`
+- `reportAiGenerateResult(id, status, prompts[], error?, usage?)`: POST `{ status, prompts: [{prompt_id, result_html}], error_message, usage }`
+  - `usage` aggregates all AI calls of the run: `{ provider, model, ai_calls, input_tokens, output_tokens, cache_write_tokens, cache_read_tokens, estimated_cost_usd }` (`null` when no AI call happened). Sent on both `GENERATED` and `FAILED` — the backend persists it in `tb_ai_generation_usage`.
+- `fetchSignDocumentData(id)` / `reportSignTaskResult(...)`: signature flow equivalents
+- Statuses: `'PROCESSING' | 'GENERATED' | 'FAILED'`
+- All calls go through `fetchWithRetry` (timeout + retry)
 
 ---
 
-## Authentication
+## Signature Flow (signature)
 
-File: `src/middleware/auth.middleware.ts`
-
-- **Development**: `x-worker-secret` header compared against `WORKER_SECRET` env var
-- **Production**: `Authorization: Bearer <token>` header — **TODO: validate Google OIDC JWT**
-  - When implementing: verify JWT signature, issuer `https://accounts.google.com`, audience = Cloud Run service account
+```
+POST /signature { processDocumentId } → 202
+  fetchSignDocumentData → { document (html_content), signatures[] }
+  generatePdfFromHtml(wrapTinyMceHtml(html)) → uploadToGCS
+  Contraktor: upload file → create contract → add parties/participants → dispatch → share links
+  reportSignTaskResult(id, 'GENERATED', { contraktor_contract_id, gcs_path, signatories })
+```
 
 ---
 
@@ -182,45 +235,6 @@ File: `src/middleware/auth.middleware.ts`
 npm run dev      # tsx watch src/index.ts (hot reload)
 npm run build    # tsc → dist/
 npm start        # node dist/index.js
+npx tsc --noEmit # typecheck
+npx eslint src   # lint
 ```
-
----
-
-## Graceful Shutdown
-
-File: `src/lib/shutdown.ts`
-
-- `trackTask(promise)`: registers an in-flight task (increment counter, decrement on settle)
-- `isShuttingDown()`: returns `true` after SIGTERM/SIGINT received
-- `beginShutdown()`: sets the shutdown flag
-- `waitForDrain(timeoutMs)`: resolves when all in-flight tasks complete or timeout expires
-
-The route handler calls `trackTask()` on every fire-and-forget task. On shutdown, the entry point (`src/index.ts`) waits up to 25s for drain before exiting (Cloud Run gives 30s).
-
----
-
-## How to Add a New External Service
-
-1. Create `src/services/my-service.service.ts`
-2. Use the lazy singleton pattern for the client
-3. Export only functions
-4. Add a timeout to every external call
-5. Add required env vars to `src/config/env.ts`
-6. Add types to `src/types/` and re-export from the `index.ts` barrel
-
-## How to Add a New Route
-
-1. Add the handler in `src/handlers/`
-2. Add a Zod schema in `src/schemas/`
-3. Register the route in `src/routes/task.route.ts` (or create a new route file)
-4. Register the new plugin in `src/server.ts`
-
----
-
-## Domain Context
-
-- Documents are in **Brazilian Portuguese**
-- The backend is a **PHP Yii2** application — the API contract cannot be changed without coordinating with the backend team
-- Context files (e.g. powers of attorney, contracts) are stored in **GCS** and referenced by the backend
-- Processing is **async by design**: the worker is invoked, returns 202, and the backend polls for status updates
-- Multiple documents from the same process are always processed in parallel (`Promise.allSettled`)

@@ -23,11 +23,17 @@ const EnvSchema = z.object({
   GCS_BUCKET_NAME: z.string().min(1),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
 
+  // Max background jobs (AI generations) running at once — each can hold
+  // up to 20MB of base64 file data in memory
+  MAX_CONCURRENT_JOBS: z.coerce.number().int().min(1).default(3),
+
   // AI Provider
   AI_PROVIDER: z.enum(['claude', 'gemini']).default('claude'),
 
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-  CLAUDE_MODEL: z.string().default('claude-sonnet-4-6'),
+  CLAUDE_MODEL: z.string().default('claude-haiku-4-5-20251001'),
+  // Ignorada em modelos que rejeitam sampling params (Opus 4.7+, Sonnet 5, Fable)
+  CLAUDE_TEMPERATURE: z.coerce.number().min(0).max(1).default(0.2),
 
   GEMINI_API_KEY: z.string().min(1).optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash-lite'),
