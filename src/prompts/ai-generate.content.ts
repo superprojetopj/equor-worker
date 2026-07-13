@@ -59,6 +59,22 @@ export function buildComposeInstruction(prompts: PromptItem[], fullDocument: boo
   )
 }
 
+/** Current date in Brazil, ISO + written out in Portuguese, for the document closing ("Local, data"). */
+function buildGenerationContextPart(): AIContentPart {
+  const now = new Date()
+  const timeZone = 'America/Sao_Paulo'
+  const iso = new Intl.DateTimeFormat('en-CA', { timeZone }).format(now)
+  const extenso = new Intl.DateTimeFormat('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone,
+  }).format(now)
+  return {
+    text: `<generation_context role="structured-data">\nData atual (data de geração do documento): ${iso} — por extenso: ${extenso}\n</generation_context>`,
+  }
+}
+
 /**
  * Assembles the user-message content parts. Order matters for prompt caching:
  * the per-call instruction is last, so calls sharing the same document prefix
@@ -75,6 +91,7 @@ export function buildGenerationContent(
     {
       text: `<metadata role="structured-data">\n${JSON.stringify(metadata, null, 2)}\n</metadata>`,
     },
+    buildGenerationContextPart(),
     ...(skeleton
       ? [{ text: `<document_skeleton role="reference-only">\n${skeleton}\n</document_skeleton>` }]
       : []),
