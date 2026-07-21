@@ -10,7 +10,16 @@ async function getBrowser(): Promise<Browser> {
   browserInstance = await puppeteer.launch({
     headless: true,
     ...(PUPPETEER_EXECUTABLE_PATH && { executablePath: PUPPETEER_EXECUTABLE_PATH }),
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      // Containers without a GPU/zygote-friendly environment: Chromium can
+      // crash at startup (exit code null) without these
+      '--disable-gpu',
+      '--no-zygote',
+      '--disable-crash-reporter',
+    ],
   })
   browserInstance.once('disconnected', () => {
     browserInstance = null
