@@ -9,7 +9,9 @@ services:
       - .env
     environment:
       - PORT=8000
-      # Path do JSON de credenciais GCS dentro do container
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/keys/equor-homologa-483515-6666073a1e71.json
     volumes:
-      - ./src/config/keys:/app/keys:ro
+      # Montado no mesmo path do repositório para que
+      # GOOGLE_APPLICATION_CREDENTIALS=./src/config/keys/<key>.json (definido no
+      # .env) valha igual no container e rodando local. Não fixe a credencial
+      # aqui: environment: sobrescreve env_file: e o .env deixa de valer.
+      - ./src/config/keys:/app/src/config/keys:ro
