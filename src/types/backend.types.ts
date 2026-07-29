@@ -113,7 +113,8 @@ export interface DocumentResultPayload {
 
 // ── Sign Task Data ──
 
-export type SignaturePartyType = 'Contratante' | 'Contratada'
+/** Qualificação na prova de assinatura. 'MEDIADOR' é o responsável pelo processo. */
+export type SignaturePartyType = 'CONTRATANTE' | 'CONTRATADA' | 'MEDIADOR'
 
 export interface Signature {
   name: string

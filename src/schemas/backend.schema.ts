@@ -88,7 +88,7 @@ const SignatureSchema = z.object({
   name: z.string(),
   cpf: z.string(),
   email: z.string(),
-  party_type: z.enum(['Contratante', 'Contratada']),
+  party_type: z.enum(['CONTRATANTE', 'CONTRATADA', 'MEDIADOR']),
 })
 
 const SignDocumentSchema = z.object({

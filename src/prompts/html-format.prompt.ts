@@ -15,16 +15,19 @@ export const htmlFormatRules = `- Para o conteúdo gerado em HTML, siga estritam
 
         TIPOGRAFIA PADRÃO (aplique em TODOS os elementos de texto):
         - Todo <p> e <li> e <td> e <th>: style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000;"
-        - Todo <p>: adicione também text-align: justify; line-height: 1.5;
+        - Todo <p>: adicione também text-align: justify; line-height: 1.2;
         - Títulos (<h1>–<h6>): mesma fonte, tamanho proporcional, sem alterar a família
 
         REGRAS DE FORMATAÇÃO:
-        1. Todo <p> DEVE ter obrigatoriamente: style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.5;"
+        1. Todo <p> DEVE ter obrigatoriamente: style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.2;"
         2. NÃO use <br> para separar parágrafos. Use <p> separados.
         3. NÃO use <div> como wrapper de parágrafos.
         4. NÃO use parágrafos numerados manualmente. Use <ol>/<ul>.
         5. Parágrafos de espaçamento: <p>&nbsp;</p>
         6. NÃO adicione estilos além dos definidos nestas regras, salvo exceções abaixo.
+        7. NÃO gere <p>&nbsp;</p>, <p><br></p> ou qualquer outro parágrafo vazio ao final do trecho gerado.
+        8. O HTML deve terminar exatamente no último elemento que faz parte do conteúdo solicitado, sem linhas em branco extras.
+        9. Só gere parágrafos vazios quando a própria instrução solicitar explicitamente um espaçamento visual.
 
         EXCEÇÕES DE ESTILO PERMITIDAS:
         - Alinhamento diferente do padrão: acrescente text-align: center|left|right ao style do <p>
@@ -33,10 +36,10 @@ export const htmlFormatRules = `- Para o conteúdo gerado em HTML, siga estritam
 
         EXEMPLO CORRETO:
         <h2 style="font-family: Arial, sans-serif; font-size: 14pt; color: #000000;">Título da Seção</h2>
-        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.5;">
+        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.2;">
         Primeiro parágrafo com <strong>texto em negrito</strong> e <em>itálico</em>.
         </p>
-        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.5;">
+        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.2;">
         Segundo parágrafo do documento.
         </p>
         <ul>
@@ -58,6 +61,29 @@ export const htmlFormatRules = `- Para o conteúdo gerado em HTML, siga estritam
         </tbody>
         </table>
 
+#BLOCO DE QUALIFICAÇÃO
+
+O bloco de qualificação identifica formalmente as partes do documento.
+
+1. Priorize SEMPRE os metadados estruturados das partes. 
+2. Utilize informações dos documentos de contexto apenas para complementar dados ausentes nos metadados. 
+3. Não invente informações. 
+4. Quando um dado obrigatório não estiver disponível, mantenha o placeholder correspondente seguindo as regras de VARIÁVEIS NÃO PREENCHIDAS. 
+5. Mantenha a ordem e o formato solicitados pela instrução específica do placeholder ou pelo modelo do documento.
+
+FORMATAÇÃO: 
+
+- Coloque em negrito:
+- Nome da empresa 
+- Nome do representante legal - Não coloque CNPJ, CPF, RG, endereço ou cargo em negrito, salvo instrução específica.
+
+## BLOCO DE ASSINATURAS (quando solicitado):
+Consulte os metadados (contratantes/contratadas → sócios). Cada sócio possui atributos booleanos que definem seu papel:
+- is_signatory: true → signatário do contrato (parte contratante/contratada)
+- is_witness: true → testemunha
+- is_consultant: true → consultor
+- is_reviewer: true → revisor        
+
 ## BLOCO DE ASSINATURAS (quando solicitado):
 Consulte os metadados (contratantes/contratadas → sócios). Cada sócio possui atributos booleanos que definem seu papel:
 - is_signatory: true → signatário do contrato (parte contratante/contratada)
@@ -76,11 +102,11 @@ REGRAS DE INCLUSÃO:
 4. Priorize sempre os metadados estruturados sobre informações genéricas dos documentos de contexto
 
         EXEMPLO (sócio com is_signatory: true, is_reviewer: true, is_witness: false, is_consultant: false):
-        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.5;"><strong>EMPRESA ABC LTDA</strong></p>
-        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.5;">CNPJ 12.345.678/0001-99</p>
-        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.5;">João da Silva</p>
-        <p style="border-bottom: 1px solid #000000; width: 200px; font-family: Arial, sans-serif; font-size: 12pt; color: #000000; line-height: 1.5;"> </p>
-        <p style="font-family: Arial, sans-serif; font-size: 10pt; color: #000000; text-align: left; line-height: 1.5;">Representante Legal</p>
+        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.2;"><strong>EMPRESA ABC LTDA</strong></p>
+        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.2;">CNPJ 12.345.678/0001-99</p>
+        <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.2;">João da Silva</p>
+        <p style="border-bottom: 1px solid #000000; width: 200px; font-family: Arial, sans-serif; font-size: 12pt; color: #000000; line-height: 1.2;"> </p>
+        <p style="font-family: Arial, sans-serif; font-size: 10pt; color: #000000; text-align: left; line-height: 1.2;">Representante Legal</p>
 
 ## VARIÁVEIS NÃO PREENCHIDAS (DESTAQUE AMARELO) — REGRAS CRÍTICAS
 
@@ -93,14 +119,14 @@ REGRA 1 — Quando usar o destaque amarelo:
 REGRA 2 — Formato OBRIGATÓRIO do \`<span>\` para placeholder não preenchido:
 <span data-var="{{NOME_DA_VARIAVEL}}" style="background-color: #FFF3CD; border-radius: 3px; padding: 1px 4px;">{{NOME_DA_VARIAVEL}}</span>
 
-REGRA 3 — Fechamento da tag (CRÍTICA, FONTE DE ERRO COMUM):
+REGRA 3 — Fechamento da tag (CRÍTICA, FONTE DE ERRO COMUM)
 - A tag \`</span>\` DEVE fechar IMEDIATAMENTE após o \`}}\` do placeholder.
 - O conteúdo entre \`<span>\` e \`</span>\` é EXATAMENTE \`{{NOME_DA_VARIAVEL}}\` — nada antes, nada depois.
 - NUNCA deixe o \`<span>\` aberto envolvendo texto subsequente (vírgulas, palavras, parágrafos, outros dados).
 - NUNCA inclua múltiplos placeholders dentro do mesmo \`<span>\`. Cada placeholder tem seu próprio \`<span>\` independente.
 
 EXEMPLO CORRETO (RG não encontrado, CPF encontrado):
-<p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.5;">... portador da cédula de identidade RG nº <span data-var="{{RG_GESIVALDO}}" style="background-color: #FFF3CD; border-radius: 3px; padding: 1px 4px;">{{RG_GESIVALDO}}</span> e CPF nº 036.463.139-27, residente à Rua Desembargador Westphalen, 123 ...</p>
+<p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: justify; line-height: 1.2;">... portador da cédula de identidade RG nº <span data-var="{{RG_GESIVALDO}}" style="background-color: #FFF3CD; border-radius: 3px; padding: 1px 4px;">{{RG_GESIVALDO}}</span> e CPF nº 036.463.139-27, residente à Rua Desembargador Westphalen, 123 ...</p>
 
 EXEMPLO ERRADO — span não fechado após o placeholder (NÃO FAÇA ISSO):
 <p ...>... RG nº <span data-var="{{RG_GESIVALDO}}" style="background-color: #FFF3CD; ...">{{RG_GESIVALDO}} e CPF nº 036.463.139-27, residente à Rua ...</span></p>
