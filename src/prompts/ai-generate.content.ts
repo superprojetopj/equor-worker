@@ -1,5 +1,6 @@
 import type { AIContentPart } from '../types/ai.types.js'
 import type { ProcessMetadata, PromptItem } from '../types/backend.types.js'
+import { escapeXmlAttr, escapeXmlText } from '../lib/xml.js'
 
 // Documento inteiro = UM único prompt e quase nenhum texto fixo fora o marcador.
 // Com vários prompts, cada um é uma seção — o conjunto compõe o documento.
@@ -35,7 +36,7 @@ export function buildPromptInstruction(
     parts.push(FULL_DOCUMENT_NOTE)
   } else if (skeleton) {
     parts.push(
-      `O conteúdo gerado substituirá o marcador [[${prompt.id}]] no documento da tag <document_skeleton>. ` +
+      `O conteúdo gerado substituirá o marcador [[${escapeXmlText(prompt.id)}]] no documento da tag <document_skeleton>. ` +
         'Dimensione o texto pelo contexto ao redor do marcador e não repita trechos fixos que já existem no documento.'
     )
   }
@@ -46,8 +47,8 @@ export function buildPromptInstruction(
 export function buildComposeInstruction(prompts: PromptItem[], fullDocument: boolean): string {
   const promptsXml = prompts
     .map((p) => {
-      const lengthAttr = p.length ? ` tamanho="${p.length.replace(/"/g, '&quot;')}"` : ''
-      return `<prompt id="${p.id}"${lengthAttr}>\n${p.prompt}\n</prompt>`
+      const lengthAttr = p.length ? ` tamanho="${escapeXmlAttr(p.length)}"` : ''
+      return `<prompt id="${escapeXmlAttr(p.id)}"${lengthAttr}>\n${p.prompt}\n</prompt>`
     })
     .join('\n')
 

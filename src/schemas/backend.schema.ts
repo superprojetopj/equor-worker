@@ -64,8 +64,13 @@ const ContextFileRefSchema = z.object({
   media_type: z.string(),
 })
 
+// Ids come from the TinyMCE templates as "{PROMPT_xxxxxx}" (frontend generates
+// PROMPT_<base36>). Anything else is rejected — the id is interpolated into
+// prompt XML and matched against AI response blocks.
+const PROMPT_ID_PATTERN = /^\{?PROMPT_[A-Za-z0-9_]+\}?$/
+
 const PromptItemSchema = z.object({
-  id: z.string(),
+  id: z.string().regex(PROMPT_ID_PATTERN, 'invalid prompt id format'),
   prompt: z.string(),
   length: z.string().nullish(),
 })

@@ -1,18 +1,28 @@
 import { getEnv } from '../config/env.js'
 import { fetchWithRetry } from '../lib/http.js'
+import {
+  ContraktorAddPartyResponseSchema,
+  ContraktorListPartiesResponseSchema,
+  ContraktorAddParticipantResponseSchema,
+  ContraktorAttachFileResponseSchema,
+  ContraktorCreateContractResponseSchema,
+  ContraktorCreateProofResponseSchema,
+  ContraktorShareLinkResponseSchema,
+  ContraktorUploadFileResponseSchema,
+  type ContraktorAddPartyResponse,
+  type ContraktorListPartiesResponse,
+  type ContraktorAddParticipantResponse,
+  type ContraktorAttachFileResponse,
+  type ContraktorCreateContractResponse,
+  type ContraktorCreateProofResponse,
+  type ContraktorShareLinkResponse,
+  type ContraktorUploadFileResponse,
+} from '../schemas/contraktor.schema.js'
 import type {
   ContraktorAddPartyPayload,
-  ContraktorAddPartyResponse,
-  ContraktorListPartiesResponse,
   ContraktorAddParticipantPayload,
-  ContraktorAddParticipantResponse,
-  ContraktorAttachFileResponse,
   ContraktorCreateContractPayload,
-  ContraktorCreateContractResponse,
   ContraktorCreateProofPayload,
-  ContraktorCreateProofResponse,
-  ContraktorShareLinkResponse,
-  ContraktorUploadFileResponse,
 } from '../types/contraktor.types.js'
 
 function baseUrl(): string {
@@ -55,7 +65,7 @@ export async function uploadFileToContraktor(
     throw new Error(`Contraktor POST /files failed: ${response.status} - ${body}`)
   }
 
-  return (await response.json()) as ContraktorUploadFileResponse
+  return ContraktorUploadFileResponseSchema.parse(await response.json())
 }
 
 async function listContraktorParties(search: string): Promise<ContraktorListPartiesResponse> {
@@ -68,7 +78,7 @@ async function listContraktorParties(search: string): Promise<ContraktorListPart
     throw new Error(`Contraktor GET /parties failed: ${response.status} - ${body}`)
   }
 
-  return (await response.json()) as ContraktorListPartiesResponse
+  return ContraktorListPartiesResponseSchema.parse(await response.json())
 }
 
 async function updateContraktorParty(
@@ -88,7 +98,7 @@ async function updateContraktorParty(
     throw new Error(`Contraktor PATCH /parties/${partyId} failed: ${response.status} - ${body}`)
   }
 
-  return (await response.json()) as ContraktorAddPartyResponse
+  return ContraktorAddPartyResponseSchema.parse(await response.json())
 }
 
 export async function addPartyToContraktor(
@@ -121,7 +131,7 @@ export async function addPartyToContraktor(
     throw new Error(`Contraktor POST /parties failed: ${response.status} - ${body}`)
   }
 
-  return (await response.json()) as ContraktorAddPartyResponse
+  return ContraktorAddPartyResponseSchema.parse(await response.json())
 }
 
 export async function attachFileToContract(
@@ -143,7 +153,7 @@ export async function attachFileToContract(
     )
   }
 
-  const attached = (await attachResponse.json()) as ContraktorAttachFileResponse
+  const attached = ContraktorAttachFileResponseSchema.parse(await attachResponse.json())
 
   const mergeResponse = await fetchWithRetry(`${base}/${attached.data.id}`, {
     method: 'PUT',
@@ -158,7 +168,7 @@ export async function attachFileToContract(
     )
   }
 
-  return (await mergeResponse.json()) as ContraktorAttachFileResponse
+  return ContraktorAttachFileResponseSchema.parse(await mergeResponse.json())
 }
 
 export async function addParticipantToContract(
@@ -180,7 +190,7 @@ export async function addParticipantToContract(
     )
   }
 
-  return (await response.json()) as ContraktorAddParticipantResponse
+  return ContraktorAddParticipantResponseSchema.parse(await response.json())
 }
 
 export async function getShareLink(
@@ -201,7 +211,7 @@ export async function getShareLink(
     )
   }
 
-  return (await response.json()) as ContraktorShareLinkResponse
+  return ContraktorShareLinkResponseSchema.parse(await response.json())
 }
 
 export async function dispatchForSignature(
@@ -220,7 +230,7 @@ export async function dispatchForSignature(
     throw new Error(`Contraktor POST /proofs failed: ${response.status} - ${body}`)
   }
 
-  return (await response.json()) as ContraktorCreateProofResponse
+  return ContraktorCreateProofResponseSchema.parse(await response.json())
 }
 
 export async function createContraktorContract(
@@ -239,7 +249,7 @@ export async function createContraktorContract(
     throw new Error(`Contraktor POST /contracts failed: ${response.status} - ${body}`)
   }
 
-  return (await response.json()) as ContraktorCreateContractResponse
+  return ContraktorCreateContractResponseSchema.parse(await response.json())
 }
 
 export async function deleteContraktorContract(contractId: number): Promise<void> {

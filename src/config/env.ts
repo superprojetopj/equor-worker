@@ -17,7 +17,7 @@ const EnvSchema = z.object({
 
   WORKER_SECRET: z
     .string()
-    .min(1)
+    .min(32, 'WORKER_SECRET must be at least 32 characters')
     .transform((s) => s.trim()),
 
   GCS_BUCKET_NAME: z.string().min(1),

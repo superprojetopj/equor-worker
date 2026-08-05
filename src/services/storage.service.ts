@@ -67,10 +67,36 @@ function getBucket(): Bucket {
 }
 
 /**
+ * gcs_path values arrive in backend payloads and are untrusted. Only plain
+ * relative object paths under known prefixes are downloadable — anything with
+ * a scheme, absolute path, traversal segment, backslash or odd characters is
+ * rejected.
+ *
+ * Real prefixes used by the PHP backend (StorageService):
+ *   - uploads/processes/{processId}/…   (context attachments)
+ *   - documents/processes/{processId}/… (generated / signed PDFs)
+ */
+const ALLOWED_GCS_PATH_PREFIXES = ['uploads/', 'documents/']
+const SAFE_GCS_PATH_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/
+
+export function assertSafeGcsPath(gcsPath: string): void {
+  const hasTraversal =
+    gcsPath.includes('..') || gcsPath.split('/').includes('..') || gcsPath.includes('\\')
+  const looksAbsoluteOrUrl =
+    gcsPath.startsWith('/') || gcsPath.includes('://') || /^[A-Za-z]:/.test(gcsPath)
+  const safeCharset = SAFE_GCS_PATH_PATTERN.test(gcsPath)
+  const hasAllowedPrefix = ALLOWED_GCS_PATH_PREFIXES.some((prefix) => gcsPath.startsWith(prefix))
+  if (!safeCharset || hasTraversal || looksAbsoluteOrUrl || !hasAllowedPrefix) {
+    throw new Error(`Unsafe gcs_path rejected: "${gcsPath}"`)
+  }
+}
+
+/**
  * Downloads a file from GCS into memory as base64.
  * No temp files — GC releases after processing.
  */
 async function downloadFromGCS(gcsPath: string): Promise<string> {
+  assertSafeGcsPath(gcsPath)
   return withRetry(`download ${gcsPath}`, async () => {
     const download = getBucket().file(gcsPath).download()
     const timeout = new Promise<never>((_, reject) =>
@@ -82,6 +108,7 @@ async function downloadFromGCS(gcsPath: string): Promise<string> {
 }
 
 export async function uploadToGCS(gcsPath: string, buffer: Buffer): Promise<string> {
+  assertSafeGcsPath(gcsPath)
   return withRetry(`upload ${gcsPath}`, async () => {
     const file = getBucket().file(gcsPath)
     await file.save(buffer, { contentType: 'application/pdf', resumable: false })
