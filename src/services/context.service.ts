@@ -3,6 +3,7 @@ import pino from 'pino'
 const mammoth = createRequire(import.meta.url)('mammoth') as typeof import('mammoth')
 import type { AIContentPart } from '../types/ai.types.js'
 import type { ContextFile } from '../types/ai.types.js'
+import { escapeXmlAttr } from '../lib/xml.js'
 
 const log = pino({ name: 'context' })
 
@@ -86,25 +87,6 @@ function resolveMediaType(file: ContextFile): string {
     return resolved
   }
   return declared
-}
-
-function escapeXmlAttr(s: string): string {
-  return s.replace(/['"<>&]/g, (c) => {
-    switch (c) {
-      case '"':
-        return '&quot;'
-      case "'":
-        return '&#39;'
-      case '<':
-        return '&lt;'
-      case '>':
-        return '&gt;'
-      case '&':
-        return '&amp;'
-      default:
-        return c
-    }
-  })
 }
 
 // Wraps text-based document content in XML delimiters so the model clearly

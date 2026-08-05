@@ -45,5 +45,12 @@ RUN npm ci --omit=dev \
 
 COPY --from=builder /app/dist ./dist
 
+# Chromium não roda como root (o sandbox se recusa a iniciar), e um escape do
+# renderer não deve cair como root. A imagem node já traz o usuário `node`
+# (uid 1000); só o diretório de log precisa ser gravável por ele — o resto de
+# /app é somente leitura em runtime e o Chromium usa /tmp.
+RUN mkdir -p /app/logs && chown -R node:node /app/logs
+USER node
+
 EXPOSE 3000
 CMD ["node", "dist/index.js"]

@@ -2,6 +2,7 @@ import pino from 'pino'
 import { getEnv } from '../config/env.js'
 import { fetchWithRetry } from '../lib/http.js'
 import { stripMarkdownFences } from '../lib/ai-response.js'
+import { GeminiGenerateContentResponseSchema } from '../schemas/gemini.schema.js'
 import type { AIProviderRequest, AIResult, AIUsage } from '../types/ai.types.js'
 
 const log = pino({ name: 'gemini' })
@@ -24,7 +25,9 @@ export interface GeminiFileRef {
 export async function callGemini(req: AIProviderRequest): Promise<AIResult> {
   const { content, systemInstruction, generationConfig = { maxOutputTokens: 16000 } } = req
   const model = getEnv().GEMINI_MODEL
-  const url = `${BASE_URL}/v1beta/models/${model}:generateContent?key=${apiKey()}`
+  // API key goes in a header — never in the URL, where it would leak into
+  // logs, error messages and proxies.
+  const url = `${BASE_URL}/v1beta/models/${model}:generateContent`
 
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: content }],
@@ -38,7 +41,7 @@ export async function callGemini(req: AIProviderRequest): Promise<AIResult> {
     url,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey() },
       body: JSON.stringify(body),
     },
     { timeout: 600_000 }
@@ -49,14 +52,7 @@ export async function callGemini(req: AIProviderRequest): Promise<AIResult> {
     throw new Error(`Gemini generateContent failed [${response.status}]: ${responseText}`)
   }
 
-  const json = JSON.parse(responseText) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
-    usageMetadata?: {
-      promptTokenCount?: number
-      candidatesTokenCount?: number
-      totalTokenCount?: number
-    }
-  }
+  const json = GeminiGenerateContentResponseSchema.parse(JSON.parse(responseText))
 
   const usage: AIUsage = {
     provider: 'gemini',

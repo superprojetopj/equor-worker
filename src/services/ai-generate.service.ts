@@ -14,6 +14,7 @@ import { getBase64ContextFiles } from './storage.service.js'
 import { callClaude } from './claude.service.js'
 import { callGemini } from './gemini.service.js'
 import { parsePromptResults } from '../lib/ai-response.js'
+import { sanitizeGeneratedHtml } from '../lib/sanitize-html.js'
 import {
   aiGenerateSystemInstruction,
   composeDocumentSystemInstruction,
@@ -129,7 +130,7 @@ export async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
         for (const prompt of prompts) {
           const result_html = composed.results.get(prompt.id)
           if (result_html !== undefined) {
-            results.push({ prompt_id: prompt.id, result_html })
+            results.push({ prompt_id: prompt.id, result_html: sanitizeGeneratedHtml(result_html) })
           }
         }
         pending = prompts.filter((p) => !composed.results.has(p.id))
@@ -156,7 +157,7 @@ export async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
         systemInstruction: aiGenerateSystemInstruction,
       })
       usages.push(usage)
-      results.push({ prompt_id: prompt.id, result_html: text })
+      results.push({ prompt_id: prompt.id, result_html: sanitizeGeneratedHtml(text) })
     }
 
     await reportAiGenerateResult(

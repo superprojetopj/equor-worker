@@ -1,0 +1,30 @@
+.git
+.github
+.claude
+.DS_Store
+
+node_modules/
+dist/
+logs/
+*.log
+
+# Secrets & local env — never copy into the image build context
+.env
+.env.*
+!.env.example
+src/config/keys/
+**/equor-*-key.json
+gcs-key.json
+*.pem
+*.p12
+
+# Docs / editor noise (optional; not needed at build time)
+*.md
+!package*.json
+
+# Test / coverage / caches
+coverage/
+.nyc_output/
+.tmp/
+tmp/
+*.tsbuildinfo

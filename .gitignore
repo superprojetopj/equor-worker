@@ -5,3 +5,6 @@ dist/
 logs/
 *.log
 src/config/keys/
+
+# macOS
+.DS_Store
