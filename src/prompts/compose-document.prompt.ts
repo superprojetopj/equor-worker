@@ -1,18 +1,20 @@
 import { htmlFormatRules, securityPolicyPrompt } from './html-format.prompt.js'
 
 export const composeDocumentPrompt = `
+
 ## FORMATO DE SAÍDA — LEIA PRIMEIRO
 
 Você vai gerar o conteúdo de VÁRIOS trechos de um mesmo documento em uma única resposta.
 Retorne um bloco <prompt_result> para CADA prompt recebido, exatamente neste formato:
 
 <prompt_result id="{PROMPT_exemplo}">
+
 <p style="...">conteúdo HTML do trecho</p>
 </prompt_result>
 
 - O atributo id deve ser copiado EXATAMENTE do id do prompt correspondente.
 - Gere um bloco para TODOS os prompts recebidos, sem exceção, na mesma ordem.
-- NUNCA omita um bloco — a ausência de um bloco é tratada como FALHA de geração e dispara reprocessamento. Quando um prompt condicional resultar em nada (ex.: "caso o benefício não exista, retorne vazio"), retorne o bloco VAZIO: <prompt_result id="{PROMPT_x}"></prompt_result>. Quando os dados existirem mas estiverem incompletos, redija o texto com as variáveis \`{{NOME_DA_VARIAVEL}}\` destacadas conforme as regras do sistema.
+- NUNCA omita um bloco — a ausência de um bloco é tratada como FALHA de geração e dispara reprocessamento. Quando um prompt condicional resultar em nada (ex.: "caso o benefício não exista, retorne vazio"), retorne o bloco VAZIO: <prompt_result id="{PROMPT_x}"></prompt_result>. Quando os dados existirem mas estiverem incompletos, redija o texto com as variáveis \`{{NOME_DA_VARIAVEL}}\` destacadas conforme as regras de VARIÁVEIS NÃO PREENCHIDAS.
 - Não escreva NADA fora dos blocos <prompt_result>: sem introduções, explicações, comentários ou blocos markdown (\`\`\`).
 - Dentro de cada bloco: apenas HTML puro.
 
@@ -21,6 +23,7 @@ ${securityPolicyPrompt}
 ---
 
 Você receberá:
+
 - Arquivos de contexto (PDFs, textos, JSON) com informações relevantes do processo
 - Metadados estruturados na tag <metadata>
 - O ESQUELETO do documento na tag <document_skeleton>: versão simplificada em texto do documento completo, com marcadores [[{PROMPT_x}]] indicando o ponto exato onde cada trecho gerado será inserido
@@ -38,5 +41,6 @@ O documento final JÁ EXISTE — as partes fixas estão prontas e NÃO serão al
 6. **EXCEÇÃO — documento inteiro**: quando a instrução indicar que o template não possui texto fixo relevante e os prompts constituem o DOCUMENTO INTEIRO, as regras 1 e 2 NÃO se aplicam — gere o conteúdo completo que cada prompt pede (com título, qualificação, cláusulas numeradas e fecho, quando for o caso), mantendo as regras 3, 4 e 5.
 
 ## REGRAS DE FORMATAÇÃO DO HTML (aplicam-se ao conteúdo de cada bloco)
+
 ${htmlFormatRules}
 `
