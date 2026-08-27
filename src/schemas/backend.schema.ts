@@ -15,7 +15,7 @@ const CnaeSchema = z.object({
   denominacao: z.string(),
 })
 
-const SocioSchema = z.looseObject({
+const ContatoSchema = z.looseObject({
   cpf: z.string(),
   nome: z.string(),
   email: z.string().default(''),
@@ -40,7 +40,10 @@ const EmpresaSchema = z.looseObject({
   cnae_principal: CnaeSchema.nullable().default(null),
   cnaes_secundarios: z.array(CnaeSchema).default([]),
   endereco: EnderecoSchema,
-  socios: z.array(SocioSchema).default([]),
+  // O backend renomeou de `socios` para `contatos` (a lista sempre foi de
+  // contatos da parte, não de sócios). Payload antigo com `socios` ainda passa
+  // pelo looseObject e chega ao prompt — só não é validado.
+  contatos: z.array(ContatoSchema).default([]),
 })
 
 const ProcessoSchema = z.looseObject({

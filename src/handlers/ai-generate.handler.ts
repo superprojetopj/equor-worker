@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { AiGeneratePayloadSchema } from '../schemas/ai-generate.schema.js'
 import { runAiGenerate } from '../services/ai-generate.service.js'
-import { enqueueJob } from '../lib/job-queue.js'
+import { runTask } from '../lib/task-route.js'
 
 export async function aiGenerateHandler(
   request: FastifyRequest,
@@ -9,13 +9,11 @@ export async function aiGenerateHandler(
 ): Promise<void> {
   const payload = AiGeneratePayloadSchema.parse(request.body)
 
-  const accepted = enqueueJob(`ai-generate:${payload.processDocumentId}`, () =>
-    runAiGenerate(payload)
-  )
-
-  reply.code(202).send({
-    status: 'accepted',
-    payload,
-    ...(accepted ? {} : { duplicate: true }),
+  // Sem retry da fila: cada execução é outra fatura pelo mesmo documento, e a
+  // falha já foi reportada ao backend, que a mostra na tela.
+  return runTask(reply, {
+    key: `ai-generate:${payload.processDocumentId}`,
+    run: () => runAiGenerate(payload),
+    allowRetry: false,
   })
 }

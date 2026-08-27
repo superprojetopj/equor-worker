@@ -169,10 +169,17 @@ export async function runAiGenerate(payload: AiGeneratePayload): Promise<void> {
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    log.error({ processDocumentId, error: message }, 'ai-generate failed')
+
     try {
       await reportAiGenerateResult(processDocumentId, 'FAILED', [], message, aggregateUsage(usages))
-    } catch {
-      // backend unreachable — nothing else to do
+    } catch (reportError) {
+      log.error(
+        { processDocumentId, reportError: String(reportError) },
+        'Failed to report FAILED status'
+      )
     }
+
+    throw error
   }
 }
