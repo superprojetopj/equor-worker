@@ -14,6 +14,22 @@ const EnvSchema = z.object({
     .default('/worker/{processDocumentId}/ai-generate-result'),
   BACKEND_SIGN_TASK_DATA_PATH: z.string().default('/worker/{processDocumentId}/sign-task-data'),
   BACKEND_SIGN_TASK_RESULT_PATH: z.string().default('/worker/{processDocumentId}/sign-result'),
+  // Vídeo e transcrição têm pipelines separadas no backend: cada evento do
+  // Recall dispara a sua, e as chaves de fila não colidem (a chave única de
+  // antes fazia o segundo webhook ser descartado como duplicado, e a
+  // transcrição só era recuperada pela auditoria meia hora depois).
+  BACKEND_RECALL_VIDEO_TASK_DATA_PATH: z
+    .string()
+    .default('/worker/{processMeetingId}/recall-video-task-data'),
+  BACKEND_RECALL_VIDEO_RESULT_PATH: z
+    .string()
+    .default('/worker/{processMeetingId}/recall-video-result'),
+  BACKEND_RECALL_TRANSCRIPT_TASK_DATA_PATH: z
+    .string()
+    .default('/worker/{processMeetingId}/recall-transcript-task-data'),
+  BACKEND_RECALL_TRANSCRIPT_RESULT_PATH: z
+    .string()
+    .default('/worker/{processMeetingId}/recall-transcript-result'),
 
   WORKER_SECRET: z
     .string()
@@ -23,9 +39,19 @@ const EnvSchema = z.object({
   GCS_BUCKET_NAME: z.string().min(1),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
 
-  // Max background jobs (AI generations) running at once — each can hold
-  // up to 20MB of base64 file data in memory
-  MAX_CONCURRENT_JOBS: z.coerce.number().int().min(1).default(3),
+  // Teto do download da mídia. Precisa caber no dispatch_deadline da task
+  // (1800s no /recall-video, definido em CloudTaskService) JUNTO com o upload
+  // para o GCS — por isso 20 min, não 30: os 10 restantes são a folga do envio.
+  RECALL_MEDIA_TIMEOUT_MS: z.coerce.number().int().min(60_000).default(1_200_000),
+
+  // Folga para requisições curtas terminarem no SIGTERM. O que for cortado no
+  // meio não responde 2xx e o Cloud Tasks reentrega, então esperar mais que
+  // isso só atrasa o deploy.
+  SHUTDOWN_GRACE_MS: z.coerce.number().int().min(1_000).default(20_000),
+
+  // Sufixos de host aceitos nas URLs de mídia do Recall (anti-SSRF). O download
+  // do Recall redireciona para presigned URL do S3, por isso amazonaws.com.
+  RECALL_MEDIA_ALLOWED_HOSTS: z.string().default('recall.ai,amazonaws.com'),
 
   // AI Provider
   AI_PROVIDER: z.enum(['claude', 'gemini']).default('claude'),

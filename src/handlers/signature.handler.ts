@@ -11,7 +11,7 @@ import {
   dispatchForSignature,
   getShareLink,
 } from '../services/contraktor.service.js'
-import { dispatch } from '../lib/shutdown.js'
+import { runTask } from '../lib/task-route.js'
 import { SignTaskParamsSchema, SignTaskPayload } from '../schemas/signature.schema.js'
 
 const log = pino({ name: 'sign-task-data' })
@@ -109,20 +109,28 @@ async function runSignTask(payload: SignTaskPayload): Promise<void> {
     try {
       await reportSignTaskResult(processDocumentId, 'FAILED', { errorMessage: message })
     } catch (reportError) {
-      const reportMessage =
-        reportError instanceof Error ? reportError.message : String(reportError)
-      log.error({ processDocumentId, reportError: reportMessage }, 'Failed to report FAILED status')
+      log.error(
+        { processDocumentId, reportError: String(reportError) },
+        'Failed to report FAILED status'
+      )
     }
+
+    throw error
   }
 }
 
+/**
+ * Sem retry da fila: `runSignTask` não é idempotente do lado de fora — cada
+ * execução cria um contrato novo no Contraktor e dispara e-mail para
+ * signatários reais. Perder um job deixa o documento PENDING e recuperável;
+ * repetir entrega o mesmo documento duas vezes a uma pessoa de verdade.
+ */
 export async function signHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const payload = SignTaskParamsSchema.parse(request.body)
 
-  reply.code(202).send({
-    status: 'accepted',
-    payload,
+  return runTask(reply, {
+    key: `signature:${payload.processDocumentId}`,
+    run: () => runSignTask(payload),
+    allowRetry: false,
   })
-
-  dispatch(runSignTask(payload), { payload })
 }

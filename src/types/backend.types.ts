@@ -15,7 +15,7 @@ export interface Cnae {
   denominacao: string
 }
 
-export interface Socio {
+export interface Contato {
   cpf: string
   nome: string
   email: string
@@ -41,7 +41,7 @@ export interface Empresa {
   cnae_principal: Cnae | null
   cnaes_secundarios: Cnae[]
   endereco: Endereco
-  socios: Socio[]
+  contatos: Contato[]
   [key: string]: unknown
 }
 

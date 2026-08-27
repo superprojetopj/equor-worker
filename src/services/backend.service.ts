@@ -4,6 +4,12 @@ import {
   BackendProcessDocumentResponseSchema,
   BackendSignDocumentResponseSchema,
 } from '../schemas/backend.schema.js'
+import {
+  RecallMediaTaskDataSchema,
+  type RecallMediaKind,
+  type RecallMediaResultArtifact,
+  type RecallMediaTaskData,
+} from '../schemas/recall-media.schema.js'
 import type {
   AiUsageReport,
   DocumentStatus,
@@ -64,6 +70,69 @@ export async function fetchSignDocumentData(
   const json = (await response.json()) as { success?: boolean; data?: unknown }
   const payload = json.data ?? json
   return BackendSignDocumentResponseSchema.parse(payload) as BackendSignDocumentResponse
+}
+
+/**
+ * O que ainda falta transferir da reunião, com URLs frescas do Recall.
+ *
+ * O backend só resolve as URLs neste momento porque elas são de curta duração —
+ * buscá-las antes de o worker pedir trabalho seria pedir para expirarem na
+ * fila. Lista vazia é resposta legítima: nada pendente, ou artefato que o
+ * Recall ainda está preparando.
+ */
+export async function fetchRecallMediaTaskData(
+  processMeetingId: number,
+  kind: RecallMediaKind
+): Promise<RecallMediaTaskData> {
+  const env = getEnv()
+  const template =
+    kind === 'video'
+      ? env.BACKEND_RECALL_VIDEO_TASK_DATA_PATH
+      : env.BACKEND_RECALL_TRANSCRIPT_TASK_DATA_PATH
+
+  const path = template.replace('{processMeetingId}', String(processMeetingId))
+  const url = `${backendUrl()}${path}`
+
+  const response = await fetchWithRetry(url, { method: 'GET', headers: headers() })
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Backend GET ${path} failed: ${response.status} - ${body}`)
+  }
+
+  const json = (await response.json()) as { success?: boolean; data?: unknown }
+  const payload = json.data ?? json
+  return RecallMediaTaskDataSchema.parse(payload)
+}
+
+export async function reportRecallMediaResult(
+  processMeetingId: number,
+  kind: RecallMediaKind,
+  status: 'DONE' | 'FAILED',
+  options: { artifacts?: RecallMediaResultArtifact[]; errorMessage?: string } = {}
+): Promise<void> {
+  const env = getEnv()
+  const template =
+    kind === 'video'
+      ? env.BACKEND_RECALL_VIDEO_RESULT_PATH
+      : env.BACKEND_RECALL_TRANSCRIPT_RESULT_PATH
+
+  const path = template.replace('{processMeetingId}', String(processMeetingId))
+  const url = `${backendUrl()}${path}`
+
+  const response = await fetchWithRetry(url, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      status,
+      artifacts: options.artifacts ?? [],
+      error_message: options.errorMessage ?? null,
+    }),
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Backend POST ${path} failed: ${response.status} - ${body}`)
+  }
 }
 
 export async function reportSignTaskResult(
