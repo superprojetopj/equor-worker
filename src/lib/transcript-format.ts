@@ -83,6 +83,34 @@ function textOf(words: unknown): string {
  * @throws {TranscriptFormatError} quando o JSON não segue o schema documentado
  */
 export function transcriptToText(raw: unknown): string {
+  const blocks = transcriptBlocks(raw)
+  if (blocks.length === 0) return ''
+
+  return blocks.map((block) => `[${block.speaker}]\n${block.parts.join(' ')}`).join('\n\n') + '\n'
+}
+
+/**
+ * Quem falou, na ordem em que entrou na conversa e sem repetir.
+ *
+ * É a única fonte honesta de quem participou da reunião: o backend cruza estes
+ * nomes com os contatos das partes para montar o elenco da ata, e o que não
+ * casar continua nomeado no corpo do documento, pela própria transcrição.
+ *
+ * @throws {TranscriptFormatError} pelas mesmas razões de transcriptToText
+ */
+export function transcriptSpeakers(raw: unknown): string[] {
+  return [...new Set(transcriptBlocks(raw).map((block) => block.speaker))]
+}
+
+type Block = { speaker: string; parts: string[] }
+
+/**
+ * Falas consecutivas do mesmo participante agrupadas num bloco.
+ *
+ * Array vazio significa UMA coisa só: a transcrição existe e não tem fala
+ * nenhuma. Qualquer outra surpresa lança.
+ */
+function transcriptBlocks(raw: unknown): Block[] {
   if (!Array.isArray(raw)) {
     throw new TranscriptFormatError(
       `Expected a top-level array of segments, got ${raw === null ? 'null' : typeof raw}`
@@ -90,9 +118,9 @@ export function transcriptToText(raw: unknown): string {
   }
 
   // Reunião sem fala: legítimo, e o backend sabe fechar o ciclo assim.
-  if (raw.length === 0) return ''
+  if (raw.length === 0) return []
 
-  const blocks: { speaker: string; parts: string[] }[] = []
+  const blocks: Block[] = []
 
   for (const segment of raw) {
     if (!isRecord(segment)) continue
@@ -119,5 +147,5 @@ export function transcriptToText(raw: unknown): string {
     )
   }
 
-  return blocks.map((block) => `[${block.speaker}]\n${block.parts.join(' ')}`).join('\n\n') + '\n'
+  return blocks
 }

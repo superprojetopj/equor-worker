@@ -100,46 +100,72 @@ EXEMPLO CORRETO (múltiplos placeholders na mesma frase — cada um com seu pró
 
 ## BLOCOS ESPECIAIS (aplicam-se SOMENTE quando a instrução pedir o bloco correspondente)
 
-As duas seções abaixo NÃO devem ser geradas espontaneamente. Use-as apenas quando a instrução do trecho solicitar a qualificação das partes ou o bloco de assinaturas.
+As seções abaixo NÃO devem ser geradas espontaneamente. Use-as apenas quando a instrução do trecho solicitar a qualificação das partes, o bloco de assinaturas ou o registro de quem participou de uma reunião.
 
 ### BLOCO DE QUALIFICAÇÃO
 
 O bloco de qualificação identifica formalmente as partes do documento/contrato.
 
-1. Priorize SEMPRE os metadados estruturados das partes.
-2. Utilize informações dos documentos de contexto apenas para complementar dados ausentes nos metadados.
-3. Não invente informações. Quando um dado obrigatório não estiver disponível, mantenha o placeholder correspondente seguindo as regras de VARIÁVEIS NÃO PREENCHIDAS.
-4. Mantenha a ordem e o formato solicitados pela instrução específica do placeholder ou pelo modelo do documento.
-5. Separe os blocos das partes conforme o papel de cada uma no tipo de contrato (ex.: CONTRATANTE e CONTRATADA; COMODANTE e COMODATÁRIA).
-6. Considere o mediador um advogado ou assessor jurídico, e  identifique-o em um bloco separado ao final das qualificações, informando o número do registro OAB, quando disponível.
-7. Se houver testemunhas e/ou consultores identificados no processo, identifique-os também.
+QUEM REPRESENTA CADA PARTE — REGRA CRÍTICA:
+
+Cada contato em \`contratantes[].contatos[]\` e \`contratadas[].contatos[]\` traz o atributo \`is_qualifying_partner\`. Ele é a decisão de quem monta o documento sobre quem representa aquela parte no ato.
+
+1. Quem qualifica a parte é EXCLUSIVAMENTE o contato com \`is_qualifying_partner: true\`. NÃO deduza o representante por cargo, por \`legal_representative\` ou por qualquer texto dos documentos de contexto.
+2. Se a parte tiver MAIS DE UM contato com \`is_qualifying_partner: true\`, cite todos, na ordem em que aparecem nos metadados, ligados por "e" (representação conjunta).
+3. Se a parte NÃO tiver nenhum, mantenha o placeholder do representante seguindo as regras de VARIÁVEIS NÃO PREENCHIDAS — não escolha um contato por conta própria.
+4. Contatos sem esse atributo participam do documento em outros papéis (assinatura, testemunho, consultoria) e NÃO entram na qualificação da parte.
+
+Use o cargo do contato (campo \`role\`, ex.: SÓCIO, SÓCIO-ADMINISTRADOR) para redigir a expressão de representação: "neste ato representada por seu sócio-administrador FULANO DE TAL, ...".
+
+DEMAIS REGRAS:
+
+5. Priorize SEMPRE os metadados estruturados das partes.
+6. Utilize informações dos documentos de contexto apenas para complementar dados ausentes nos metadados.
+7. Não invente informações. Quando um dado obrigatório não estiver disponível, mantenha o placeholder correspondente seguindo as regras de VARIÁVEIS NÃO PREENCHIDAS.
+8. Mantenha a ordem e o formato solicitados pela instrução específica do placeholder ou pelo modelo do documento.
+9. Separe os blocos das partes conforme o papel de cada uma no tipo de contrato (ex.: CONTRATANTE e CONTRATADA; COMODANTE e COMODATÁRIA).
+10. Considere o mediador (\`processo.mediador\`) um advogado ou assessor jurídico, e identifique-o em um bloco separado ao final das qualificações, informando o número do registro OAB, quando disponível. Quando \`processo.mediador\` for null, o documento não tem mediador — não invente um nem deixe placeholder.
+11. Se houver testemunhas e/ou consultores identificados no processo, identifique-os também.
 
 PADRÃO DE FORMATAÇÃO:
 - Em negrito: nome da empresa e nome do representante legal.
 - SEM negrito: CNPJ, CPF, RG, endereço e cargo, salvo instrução específica em contrário.
 
+### QUEM PARTICIPOU (ATA DE REUNIÃO)
+
+Numa ata, quem esteve presente é um FATO da sessão, não uma lista de cadastro. As duas fontes são diferentes e não se substituem:
+
+1. **A transcrição é a fonte dos presentes.** O arquivo de transcrição no contexto traz cada fala precedida do nome de quem falou, entre colchetes — \`[Maria Silva]\`. Esses nomes são quem efetivamente participou. Liste-os a partir dali.
+2. **\`contatos: []\` numa ata NÃO significa "sala vazia".** Significa que ninguém foi designado para papéis do documento (assinar, testemunhar, qualificar a parte). Não conclua daí que a reunião não teve participantes, e não deixe o registro de presentes em branco por causa disso.
+3. **Quando houver contatos nos metadados**, use-os para completar quem a transcrição nomeia: nome completo, CPF, cargo e a parte que a pessoa representa. Casamento por nome; na dúvida, prefira o nome como aparece na transcrição a atribuir a fala à pessoa errada.
+4. **Quem aparece na transcrição e não está nos metadados entra assim mesmo**, só com o nome falado. Não invente CPF, cargo, empresa ou qualificação para essa pessoa.
+5. Nomes de tela sem pessoa identificável (\`[Convidado]\`, \`[Sala 3]\`, aparelhos) não viram participantes — mencione-os apenas se a fala deles for relevante ao conteúdo.
+6. As empresas das partes (\`contratantes\`/\`contratadas\`: razão social, CNPJ) continuam vindo dos metadados: são elas que a ata identifica como partes envolvidas, independentemente de quem falou.
+
 ### BLOCO DE ASSINATURAS
 
-Consulte os metadados (contratantes/contratadas → sócios). Cada sócio possui atributos booleanos que definem seu papel:
+Consulte os metadados (contratantes/contratadas → contatos). Cada contato possui atributos booleanos INDEPENDENTES entre si — nenhum implica outro:
 
-- is_signatory: true → assina o contrato como parte (deve haver no mínimo um signatário para cada parte: contratante e contratada)
+- is_signatory: true → assina o contrato como parte
 - is_witness: true → testemunha — aparece no bloco de assinaturas
 - is_consultant: true → consultor — aparece no bloco de assinaturas
-- is_reviewer: true → revisor apenas — NÃO aparece no bloco de assinaturas (salvo se também tiver outro atributo true)
+- is_reviewer: true → revisa o documento antes da assinatura; NÃO é motivo para aparecer no bloco de assinaturas
+- is_qualifying_partner: true → representa a parte na QUALIFICAÇÃO; NÃO é motivo para aparecer no bloco de assinaturas
 
 REGRAS DE INCLUSÃO:
 
-1. Inclua APENAS sócios cujo atributo is_signatory, is_witness ou is_consultant seja true.
-2. Um sócio pode ter mais de um atributo true (ex.: is_signatory e is_reviewer) — inclua-o uma única vez, com o rótulo do papel de assinatura.
+1. Inclua APENAS contatos cujo atributo is_signatory, is_witness ou is_consultant seja true. Quem tem só is_reviewer e/ou só is_qualifying_partner fica FORA deste bloco.
+2. Um contato pode ter vários atributos true (ex.: is_qualifying_partner, is_reviewer e is_signatory) — inclua-o uma única vez, com o rótulo do papel de assinatura.
 3. Use o rótulo abaixo da linha de assinatura conforme o papel:
-   - is_signatory → "Representante Legal" ou o valor de role/profissão do sócio
+   - is_signatory → "Representante Legal" ou o valor de role/profissão do contato
    - is_witness → "Testemunha"
    - is_consultant → "Consultor" ou profissão, se disponível
-4. Além dos sócios, inclua o mediador do processo (que pode ou não ser o advogado responsável), quando identificado nos metadados ou na negociação, com o rótulo "Mediador" (ou "Advogado(a)" com OAB, se for o caso).
+4. Inclua o mediador (\`processo.mediador\`) SOMENTE quando \`processo.mediador.is_signatory\` for true, com o rótulo "Mediador" (ou "Advogado(a)" com OAB, se for o caso). Mediador com \`is_signatory: false\` aparece na qualificação mas NÃO assina — não desenhe linha de assinatura para ele. Quando \`processo.mediador\` for null, não há mediador no documento.
 5. Priorize sempre os metadados estruturados sobre informações genéricas dos documentos de contexto.
 6. Deixe um espaço entre os blocos específicos das partes.
+7. Não force simetria: se um lado não tiver nenhum signatário nos metadados, não invente um — gere o bloco só com quem está marcado.
 
-EXEMPLO (sócio com is_signatory: true, is_reviewer: true, is_witness: false, is_consultant: false):
+EXEMPLO (contato com is_signatory: true, is_qualifying_partner: true, is_reviewer: true, is_witness: false, is_consultant: false):
 <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.2;"><strong>EMPRESA ABC LTDA</strong></p>
 <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.2;">CNPJ 12.345.678/0001-99</p>
 <p style="font-family: Arial, sans-serif; font-size: 12pt; color: #000000; text-align: left; line-height: 1.2;">João da Silva</p>
