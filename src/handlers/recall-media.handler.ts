@@ -2,7 +2,7 @@ import pino from 'pino'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { getEnv } from '../config/env.js'
 import { runTask } from '../lib/task-route.js'
-import { transcriptToText } from '../lib/transcript-format.js'
+import { transcriptSpeakers, transcriptToText } from '../lib/transcript-format.js'
 import {
   fetchRecallMediaTaskData,
   reportRecallMediaResult,
@@ -79,7 +79,7 @@ async function transferVideo(
  */
 async function transferTranscript(
   artifact: RecallMediaArtifact
-): Promise<RecallMediaResultOutput[]> {
+): Promise<{ outputs: RecallMediaResultOutput[]; speakers: string[] }> {
   const response = await fetchMedia(artifact.url)
 
   if (!response.ok) {
@@ -88,6 +88,7 @@ async function transferTranscript(
 
   const raw = await response.text()
   const results: RecallMediaResultOutput[] = []
+  let speakers: string[] = []
 
   const jsonOutput = artifact.outputs.find((o) => o.format === 'json')
   if (jsonOutput) {
@@ -103,7 +104,9 @@ async function transferTranscript(
   if (txtOutput) {
     let text: string
     try {
-      text = transcriptToText(JSON.parse(raw))
+      const parsed = JSON.parse(raw)
+      text = transcriptToText(parsed)
+      speakers = transcriptSpeakers(parsed)
     } catch (err) {
       // Duas causas caem aqui, e as duas têm a mesma saída certa: o JSON não
       // parseou, ou parseou e não bate com o schema documentado. O conteúdo
@@ -127,7 +130,7 @@ async function transferTranscript(
     }
   }
 
-  return results
+  return { outputs: results, speakers }
 }
 
 async function runRecallMediaTask(
@@ -154,13 +157,17 @@ async function runRecallMediaTask(
     }
 
     for (const artifact of taskData.artifacts) {
-      const outputs =
-        artifact.kind === 'video'
-          ? await transferVideo(artifact)
-          : await transferTranscript(artifact)
+      if (artifact.kind === 'video') {
+        const outputs = await transferVideo(artifact)
+        if (outputs.length > 0) {
+          artifacts.push({ kind: artifact.kind, outputs })
+        }
+        continue
+      }
 
+      const { outputs, speakers } = await transferTranscript(artifact)
       if (outputs.length > 0) {
-        artifacts.push({ kind: artifact.kind, outputs })
+        artifacts.push({ kind: artifact.kind, outputs, speakers })
       }
     }
 

@@ -57,4 +57,9 @@ export type RecallMediaResultOutput = {
 export type RecallMediaResultArtifact = {
   kind: RecallMediaArtifact['kind']
   outputs: RecallMediaResultOutput[]
+  /**
+   * Quem falou na reunião, distinto e na ordem da conversa. Só no artefato de
+   * transcrição — é do nome do falante que o backend monta o elenco da ata.
+   */
+  speakers?: string[]
 }

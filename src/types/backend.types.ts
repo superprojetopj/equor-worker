@@ -28,8 +28,18 @@ export interface Contato {
   is_witness: boolean
   is_consultant: boolean
   is_reviewer: boolean
-  endereco?: Endereco
+  /** Sócio que representa a parte na qualificação do contrato. */
+  is_qualifying_partner: boolean
+  endereco?: Endereco | null
   [key: string]: unknown
+}
+
+/** Mediador do documento — assina como MEDIADOR só quando `is_signatory`. */
+export interface Mediador {
+  nome: string
+  email: string
+  cpf: string
+  is_signatory: boolean
 }
 
 export interface Empresa {
@@ -40,7 +50,7 @@ export interface Empresa {
   email: string
   cnae_principal: Cnae | null
   cnaes_secundarios: Cnae[]
-  endereco: Endereco
+  endereco?: Endereco | null
   contatos: Contato[]
   [key: string]: unknown
 }
@@ -52,6 +62,8 @@ export interface ProcessoInfo {
   valores_e_multas?: string
   date_start?: string | null
   date_end?: string | null
+  /** null quando o documento foi criado sem mediador. */
+  mediador?: Mediador | null
 }
 
 export interface ProcessMetadata {
